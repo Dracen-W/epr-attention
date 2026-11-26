@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this architecture, code, or experimental findings in your research, please cite it as below."
+title: "Unified Fiber-Gravity & ER=EPR Wormhole Attention"
+type: software
+authors:
+  - alias: "Dracen-W"
+date-released: 2026-11-26
+version: "6.0.0"
+license: MIT
+repository-code: "https://github.com/Dracen-W/llama2-wormhole-gravity"
+keywords:
+  - large-language-models
+  - attention-mechanism
+  - length-extrapolation
+  - llama2
+  - physics-inspired-ai
+references:
+  - type: software
+    title: "llama2.c"
+    authors:
+      - family-names: "Karpathy"
+        given-names: "Andrej"
+    year: 2023
+    repository-code: "https://github.com/karpathy/llama2.c"
+  - type: article
+    title: "Llama 2: Open Foundation and Fine-Tuned Chat Models"
+    authors:
+      - family-names: "Touvron"
+        given-names: "Hugo"
+    year: 2023
+    identifiers:
+      - type: other
+        value: "arXiv:2307.09288"

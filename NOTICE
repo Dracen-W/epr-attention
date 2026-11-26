@@ -1,0 +1,37 @@
+================================================================================
+ATTRIBUTION & THIRD-PARTY LICENSE NOTICE
+================================================================================
+
+1. Base Implementation — `llama2.c` (MIT License)
+   This repository is built upon Andrej Karpathy's `llama2.c`:
+     - Repository: https://github.com/karpathy/llama2.c
+     - Copyright (c) 2023 Andrej Karpathy
+     - License: MIT License (see the `LICENSE` file in the root directory).
+
+2. Base Architecture & Optional Tokenizer — Meta Llama 2
+   Built with Meta Llama 2 architecture (RMSNorm, RoPE, SwiGLU, GQA),
+   introduced by Meta AI in:
+     Hugo Touvron et al., "Llama 2: Open Foundation and Fine-Tuned Chat Models",
+     arXiv:2307.09288 (2023).
+
+   IMPORTANT LICENSE COMPLIANCE NOTE:
+   - All original PyTorch code written in this repository (including
+     `UnifiedFiberGravityAttention`, `audit_all.py`, `eval_extrapolation.py`,
+     `eval_needle.py`, and Damped Pauli Repulsion) and the `llama2.c` scaffold
+     are provided under the MIT License.
+   - If you use Meta's original `tokenizer.model` / `tokenizer.bin` files
+     (included from `llama2.c`) or any Meta Llama 2 pretrained weights, your
+     use of those Meta materials is subject to the **Llama 2 Community License
+     Agreement** (https://ai.meta.com/llama/license/). In particular, Meta's
+     license requires displaying "Built with Meta Llama 2" and respecting the
+     Acceptable Use Policy and monthly active user thresholds.
+   - Experiments on WikiText-2 in this repository use a custom 4,096-vocab
+     HuggingFace BPE tokenizer (`data/wikitext2/tokenizer.json`) trained from
+     scratch on WikiText-2 without using Meta Llama 2 weights or tokenizer.
+
+3. Academic Baselines & Inspirations Cited in `CITATION.bib`
+   - RoPE: Su et al. (2021), RoFormer
+   - ALiBi: Press et al. (ICLR 2022), Train Short, Test Long
+   - Quiet Attention / Softmax1: Evan Miller (2023), Attention Is Off By One
+   - YaRN: Peng et al. (ICLR 2024), Efficient Context Window Extension of LLMs
+   - FoX: Lin et al. (ICLR 2025), Forgetting Transformer
