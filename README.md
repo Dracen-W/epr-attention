@@ -2,7 +2,7 @@
 
 # Unified Fiber-Gravity & ER=EPR Wormhole Attention (v6)
 
-**Physics-Grounded Long-Context Attention on a Clean Llama 2 Backbone**
+**Edge-First, High-Density Long-Context Architecture on a Clean Llama 2 Backbone**
 
 **English** | [简体中文](README_zh.md) · [📊 Full Benchmarks, Translation & Samples](docs/BENCHMARKS.md)
 
@@ -14,9 +14,9 @@
 
 > **Attribution:** Built with the **Meta Llama 2** architecture (Touvron et al., 2023) on top of Andrej Karpathy's [`llama2.c`](https://github.com/karpathy/llama2.c) (MIT License). See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`CITATION.bib`](CITATION.bib) for full license and citation terms.
 
-**Unified Fiber-Gravity & ER=EPR Wormhole Attention (`v6-wormhole`)** replaces standard dot-product attention with a hardware-aligned, physics-grounded interaction kernel that resolves the long-context dilemma: **damped attention extrapolates cleanly but forgets distant details, whereas undamped attention recalls distant needles but explodes beyond training length.**
+**Unified Fiber-Gravity & ER=EPR Wormhole Attention (`v6-wormhole`)** is an **edge-first, high-density long-context architecture** designed so smaller models can run on everyday consumer GPUs, laptops, and edge devices while punching well above their parameter weight class. By replacing redundant attention parameters with compact geometric priors, it resolves the classic long-context dilemma: **damped attention extrapolates cleanly but forgets distant details, whereas undamped attention recalls distant needles but explodes beyond training length.**
 
-Using **strictly fewer parameters (`-1.4% to -1.6%`)** than Pure Llama 2 and **verified zero future leakage (`0.00e+00` in `float64`)**, `v6-wormhole` wins across **6 benchmarks (`1.3M → 28M`)**:
+Using **strictly fewer parameters (`-1.4% to -1.6%`, up to `-372K` fewer weights at 28M)** than Pure Llama 2 and **verified zero future leakage (`0.00e+00` in `float64`)**, `v6-wormhole` wins across **6 benchmarks (`1.3M → 28M`)**:
 - **Beats SOTA (WikiText-2, 6M)**: **-19.3%** lower 4× extrapolation PPL than **FoX (ICLR 2025)** (`34.72` vs `43.05`), while maintaining **`32.3% (+0.59 ΔNLL)`** 3× needle recall where ALiBi & FoX decay to `+0.00`.
 - **Scales Stronger at 28M (RealWorld 16K)**: **-8.6%** in-domain PPL (`34.95` vs `38.24`), **-81.6%** at 4× extrapolation (`32.26` vs `175.29`), **4× accuracy / 11× ΔNLL** at `Dist=1536` (`41.1% / +1.34` vs `10.4% / +0.12`), and **wins at equal GPU wall-clock time** ([Iso-Wallclock PPL →](docs/BENCHMARKS.md#iso-wallclock)).
 - **Zero-Shot Cross-Lingual Interlingua (WMT14)**: **+22.0% sacreBLEU** on `En→De` (`5.27` vs `4.32`) and **+41.1% / +42.1% sacreBLEU** on unseen **Zero-Shot `De↔Fr`** (`4.80` vs `3.40` / `4.34` vs `3.06`) ([Translation Benchmarks →](docs/BENCHMARKS.md#translation)).
@@ -120,7 +120,17 @@ python3 run_all_tests.py --mode=28m         # ~42 min on L4: 28M RealWorld 16K (
 
 ---
 
-## 7. License & Citation
+## 7. Edge-First Positioning & Engineering Roadmap
+
+Training is a one-time cost; **inference footprint (parameter count, RAM/VRAM budget, and KV-cache size)** determines whether an architecture can run on everyday consumer hardware. Because `v6-wormhole` achieves lower PPL, stronger focus, and 4× distant recall with **fewer parameters** than Pure Llama 2, it is naturally suited as a high-density backbone for resource-constrained devices:
+
+- **Why Current PyTorch Training Is ~1.35× per Step (and Shrinks with Width)**: Passing a custom float `attn_mask` to `F.scaled_dot_product_attention` bypasses FlashAttention-2's fused SRAM path and falls back to unfused kernels. As model width increases (`dim=256 → 512`), FFN GEMMs dominate and the per-step ratio drops from `1.51×` to **`1.35×`**, already achieving **Iso-Wallclock victory at 1,368s**.
+- **Roadmap 1 — Fused Triton / Flash-Wormhole Kernel**: Fusing cumulative proper-time subtraction $(\tau_i - \tau_j)$ and the vacuum slot directly inside online-softmax SRAM tiles (analogous to FoX's fused kernel) will eliminate the `attn_mask` fallback and bring training throughput to parity with Pure Llama 2.
+- **Roadmap 2 — Asymmetric Edge KV-Cache Compression (`run.c`)**: Because damped heads (`H0..H{H-2}`) decay exponentially with distance (`half-life ~ 0.5t to 37t`), edge C/mobile inference engines can evict distant KV entries on damped heads via sliding windows while retaining full-context KV **only on the single ER=EPR Wormhole head (`H-1`)**, cutting long-context KV-cache memory by **75%–87.5%** (for 4-head / 8-head models).
+
+---
+
+## 8. License & Citation
 
 - **License**: MIT License (preserving Andrej Karpathy's original `llama2.c` copyright; see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) for Meta Llama 2 compliance).
 - **Citation**: Click **"Cite this repository"** in the right sidebar ([`CITATION.cff`](CITATION.cff)) or copy below:
