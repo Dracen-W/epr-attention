@@ -4,7 +4,7 @@
 
 **Physics-Grounded Long-Context Attention on a Clean Llama 2 Backbone**
 
-**English** | [简体中文](README_zh.md) · [📊 Full Benchmarks & Samples](docs/BENCHMARKS.md)
+**English** | [简体中文](README_zh.md) · [📊 Full Benchmarks, Translation & Samples](docs/BENCHMARKS.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
@@ -16,9 +16,10 @@
 
 **Unified Fiber-Gravity & ER=EPR Wormhole Attention (`v6-wormhole`)** replaces standard dot-product attention with a hardware-aligned, physics-grounded interaction kernel that resolves the long-context dilemma: **damped attention extrapolates cleanly but forgets distant details, whereas undamped attention recalls distant needles but explodes beyond training length.**
 
-Using **strictly fewer parameters (`-1.4% to -1.6%`)** than Pure Llama 2 and **verified zero future leakage (`0.00e+00` in `float64`)**, `v6-wormhole` achieves across **4 corpora (`1.3M → 28M`)**:
+Using **strictly fewer parameters (`-1.4% to -1.6%`)** than Pure Llama 2 and **verified zero future leakage (`0.00e+00` in `float64`)**, `v6-wormhole` wins across **6 benchmarks (`1.3M → 28M`)**:
 - **Beats SOTA (WikiText-2, 6M)**: **-19.3%** lower 4× extrapolation PPL than **FoX (ICLR 2025)** (`34.72` vs `43.05`), while maintaining **`32.3% (+0.59 ΔNLL)`** 3× needle recall where ALiBi & FoX decay to `+0.00`.
-- **Scales Stronger at 28M (RealWorld 16K)**: **-8.6%** in-domain PPL (`34.95` vs `38.24`), **-81.6%** at 4× extrapolation (`32.26` vs `175.29`), **4× accuracy / 11× ΔNLL** at `Dist=1536` (`41.1% / +1.34` vs `10.4% / +0.12`), and **wins at equal GPU wall-clock time** ([see Iso-Wallclock chart →](docs/BENCHMARKS.md#iso-wallclock)).
+- **Scales Stronger at 28M (RealWorld 16K)**: **-8.6%** in-domain PPL (`34.95` vs `38.24`), **-81.6%** at 4× extrapolation (`32.26` vs `175.29`), **4× accuracy / 11× ΔNLL** at `Dist=1536` (`41.1% / +1.34` vs `10.4% / +0.12`), and **wins at equal GPU wall-clock time** ([Iso-Wallclock PPL →](docs/BENCHMARKS.md#iso-wallclock)).
+- **Zero-Shot Cross-Lingual Interlingua (WMT14)**: **+22.0% sacreBLEU** on `En→De` (`5.27` vs `4.32`) and **+41.1% / +42.1% sacreBLEU** on unseen **Zero-Shot `De↔Fr`** (`4.80` vs `3.40` / `4.34` vs `3.06`) ([Translation Benchmarks →](docs/BENCHMARKS.md#translation)).
 
 ---
 
@@ -34,15 +35,17 @@ Using **strictly fewer parameters (`-1.4% to -1.6%`)** than Pure Llama 2 and **v
 
 ## 2. Headline Benchmark Summary
 
-> 🔍 **Dive Deeper:** [Full 4-Corpus Tables](docs/BENCHMARKS.md#panoramic-summary) · [Same-Step & Iso-Wallclock Charts](docs/BENCHMARKS.md#iso-wallclock) · [Scaling Law & 28M Needle Recall](docs/BENCHMARKS.md#scaling-law) · [SOTA Showdown](docs/BENCHMARKS.md#sota-showdown) · [Qualitative Samples](docs/BENCHMARKS.md#samples)
+> 🔍 **Dive Deeper:** [Full 6-Benchmark Parameter Matrix](docs/BENCHMARKS.md#panoramic-summary) · [Iso-Wallclock PPL](docs/BENCHMARKS.md#iso-wallclock) · [Scaling Law & 28M Needle](docs/BENCHMARKS.md#scaling-law) · [WMT14 & Zero-Shot De↔Fr](docs/BENCHMARKS.md#translation) · [SOTA Showdown](docs/BENCHMARKS.md#sota-showdown) · [Samples](docs/BENCHMARKS.md#samples)
 
-| Scale & Corpus | Model | Decayed Params | Train PPL (`T=512`) | 4× Extrap (`T=2048`) | `Dist=1536` Needle (3×) |
+| Benchmark (`dim/L/H`, Vocab) | Model | Decayed Params | Train PPL (`T=512`) | 4× Extrap (`T=2048`) | `Dist=1536` Needle / BLEU |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **6.0M / WikiText-2** | Pure Llama 2 / FoX (ICLR'25) | `5.87M` / `5.87M` | `47.98` / `44.88` | `96.23` / `43.05` | `13.5% (+0.09)` / `23.7% (+0.00)` |
-| **6.0M / WikiText-2** | **`v6-wormhole` (Ours)** | **`5.77M`** (`-94K`) | **`37.50`** | **`34.72`** (`-19.3% vs FoX`) | **`32.3% (+0.59)`** |
-| **6.0M / TinyStories** | Pure Llama 2 vs **`v6-wormhole`** | `5.87M` vs **`5.77M`** | `5.50` vs **`5.20`** | `28.67` vs **`4.90`** (`-82.9%`) | `16.4%` vs **`32.6%`** |
-| **6.8M / FineWeb-Edu** | Pure Llama 2 vs **`v6-wormhole`** | `6.91M` vs **`6.82M`** | `37.52` vs **`34.87`** | `161.27` vs **`32.29`** (`-80.0%`) | `9.6% (+0.13)` vs **`29.2% (+0.55)`** |
-| **27.6M / RealWorld 16K** | Pure Llama 2 vs **`v6-wormhole`** | `27.66M` vs **`27.28M`** | `38.24` vs **`34.95`** | `175.29` vs **`32.26`** (`-81.6%`) | `10.4% (+0.12)` vs **`41.1% (+1.34)`** |
+| **6.0M WikiText-2** (`256/6L/4H`, 4K) | Pure Llama 2 / FoX (ICLR'25) | `5.87M` / `5.87M` | `47.98` / `44.88` | `96.23` / `43.05` | `13.5% (+0.09)` / `23.7% (+0.00)` |
+| **6.0M WikiText-2** (`256/6L/4H`, 4K) | **`v6-wormhole` (Ours)** | **`5.77M`** (`-94K`) | **`37.50`** | **`34.72`** (`-19.3% vs FoX`) | **`32.3% (+0.59)`** |
+| **6.0M TinyStories** (`256/6L/4H`, 4K) | Pure Llama 2 vs **`v6-wormhole`** | `5.87M` vs **`5.77M`** | `5.50` vs **`5.20`** | `28.67` vs **`4.90`** (`-82.9%`) | `16.4%` vs **`32.6%`** |
+| **6.8M FineWeb-Edu** (`256/6L/4H`, 8K) | Pure Llama 2 vs **`v6-wormhole`** | `6.91M` vs **`6.82M`** | `37.52` vs **`34.87`** | `161.27` vs **`32.29`** (`-80.0%`) | `9.6% (+0.13)` vs **`29.2% (+0.55)`** |
+| **27.6M RealWorld** (`512/6L/8H`, 16K) | Pure Llama 2 vs **`v6-wormhole`** | `27.66M` vs **`27.28M`** | `38.24` vs **`34.95`** | `175.29` vs **`32.26`** (`-81.6%`) | `10.4% (+0.12)` vs **`41.1% (+1.34)`** |
+| **6.8M WMT14 En→De** (`256/6L/4H`, 8K) | Pure Llama 2 vs **`v6-wormhole`** | `6.91M` vs **`6.82M`** | `36.63` vs **`32.69`** | — | **BLEU: `4.32` vs `5.27` (`+22.0%`)** |
+| **7.9M Zero-Shot De↔Fr** (`256/6L/4H`, 12K) | Pure Llama 2 vs **`v6-wormhole`** | `7.96M` vs **`7.87M`** | `52.33` vs **`47.94`** | — | **De→Fr `+41.1%` / Fr→De `+42.1%`** |
 
 ---
 
@@ -50,8 +53,8 @@ Using **strictly fewer parameters (`-1.4% to -1.6%`)** than Pure Llama 2 and **v
 
 | Head Dim $D$ | Fiber $d_r$ | Base $d_g$ | Augmented Slots | Total Packed Dim | `V` Padding | Decayed Weight Delta vs Base |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `32` (`1.3M`) | `24` | `6` | `+2` | **`32`** | `0` | **`-14,848`** |
-| `64` (`6.0M`) | `48` | `14` | `+2` | **`64`** | `0` | **`-93,696`** |
+| `32` (`1.3M, 4H`) | `24` | `6` | `+2` | **`32`** | `0` | **`-14,848`** |
+| `64` (`6M–8M, 4H`) | `48` | `14` | `+2` | **`64`** | `0` | **`-93,696`** |
 | `64` (`28M, 8H`) | `48` | `14` | `+2` | **`64`** | `0` | **`-371,712`** |
 | `128` | `96` | `30` | `+2` | **`128`** | `0` | Strictly fewer than Base |
 
@@ -82,38 +85,37 @@ llama2-wormhole-gravity/
 ├── model.py                     # Core Transformer + UnifiedFiberGravityAttention (v6) + Pauli decoding
 ├── train.py                     # Multi-hardware training loop (L4/A100 bf16, T4 fp16, Apple MPS)
 ├── sample.py                    # Autoregressive sampling with Damped Pauli Repulsion CLI
+├── run_all_tests.py / .sh       # One-click master runner (audit + train + extrap + needle + BLEU)
 ├── audit_all.py                 # 6-pillar float64 mathematical parity & zero-leakage causality audit
 ├── inspect_fields.py            # Per-layer, per-head physics diagnostics (σ_g, δτ, v0, silence %)
 ├── eval_extrapolation.py        # Zero-shot length extrapolation (Vanilla / Dynamic NTK / YaRN RoPE)
 ├── eval_needle.py               # Distant Needle-in-a-Haystack recall benchmark (64 -> 1536)
+├── eval_bleu_wmt14.py           # Official newstest2014 WMT14 En->De sacreBLEU evaluator
+├── eval_zeroshot_defr.py        # Supervised En->De/Fr + Zero-Shot De<->Fr sacreBLEU evaluator
 ├── run_sota_baselines.py        # Apples-to-apples ALiBi (ICLR 2022) & FoX (ICLR 2025) trainer
-├── config/                      # Ready-to-run configs (WikiText-2 1.3M/6M, TinyStories, FineWeb-Edu, 28M RealWorld)
-├── scripts/                     # Streaming HuggingFace dataset builders (TinyStories, FineWeb-Edu, RealWorld 16K)
+├── config/                      # All 7 benchmark configs (1.3M / 6M / 6.8M / 7.9M / 28M)
+├── scripts/                     # Streaming HuggingFace dataset builders (5 corpora)
 ├── docs/
-│   ├── BENCHMARKS.md            # Complete English benchmarks, Iso-Wallclock, Scaling Laws & samples
-│   ├── BENCHMARKS_zh.md         # Complete Chinese benchmarks, Iso-Wallclock, Scaling Laws & samples
-│   └── figures/                 # 5 publication-grade 300-DPI architecture & benchmark figures
+│   ├── BENCHMARKS.md            # Complete English benchmarks, Iso-Wallclock, Translation & samples
+│   ├── BENCHMARKS_zh.md         # Complete Chinese benchmarks, Iso-Wallclock, Translation & samples
+│   └── figures/                 # 6 publication-grade 300-DPI architecture & benchmark figures
 ├── CITATION.cff / CITATION.bib  # Official GitHub citation metadata & academic BibTeX
 └── LICENSE / NOTICE             # MIT License (Andrej Karpathy + Dracen-W) & Meta Llama 2 notice
 ```
 
 ---
 
-## 6. Quick Start & 6-Pillar `float64` Audit
+## 6. One-Click Quick Start & `float64` Audit
 
 ```bash
-# 1. Run 6-pillar audit (fp64 future perturbation=0.00e+00, future grad=0.00e+00, math parity <= 3.3e-16)
-python3 audit_all.py
+# 1. Run 6-pillar fp64 audit only (~3 seconds, zero future leak verified)
+python3 run_all_tests.py --mode=audit
 
-# 2. Train 6.0M / 512-context v6-Wormhole on WikiText-2 (Colab L4: ~4 min)
-python3 train.py config/train_wikitext2_colab_scale.py \
-  --use_unified_gravity=True --use_wormhole=True --out_dir=out-6m-v6-wormhole
-
-# 3. Audit trained checkpoint, inspect physics, evaluate 4x extrapolation & 3x needle recall
-python3 audit_all.py --ckpt=out-6m-v6-wormhole/ckpt.pt
-python3 inspect_fields.py out-6m-v6-wormhole/ckpt.pt
-python3 eval_extrapolation.py out-6m-v6-wormhole --lengths=256,512,1024,2048
-python3 eval_needle.py out-6m-v6-wormhole --distances=64,128,256,512,1024,1536
+# 2. One-click full benchmark suites (auto-prepares data, trains Base vs v6, audits & evaluates!)
+python3 run_all_tests.py --mode=wikitext2   # ~8 min on L4: 6M WikiText-2 + 2048 extrap + 1536 needle
+python3 run_all_tests.py --mode=ende        # ~12 min on L4: 6.8M WMT14 En->De sacreBLEU
+python3 run_all_tests.py --mode=zeroshot    # ~15 min on L4: 7.9M Trilingual Zero-Shot De<->Fr
+python3 run_all_tests.py --mode=28m         # ~42 min on L4: 28M RealWorld 16K (8-head) showcase
 ```
 
 ---

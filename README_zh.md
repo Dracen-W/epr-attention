@@ -4,7 +4,7 @@
 
 **基于纯正 Llama 2 底座的第一性原理物理长上下文架构**
 
-[English](README.md) | **简体中文** · [📊 完整基准测试与样本档案](docs/BENCHMARKS_zh.md)
+[English](README.md) | **简体中文** · [📊 完整基准、翻译实战与样本档案](docs/BENCHMARKS_zh.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
@@ -16,9 +16,10 @@
 
 **统一纤维—引力与 ER=EPR 虫洞注意力机制（`v6-wormhole`）** 以理论物理中的纤维丛规范—引力耦合、太阳系嵌套时间膨胀与 ER=EPR 虫洞为第一性原理，在**单次硬件对齐 SDPA** 中彻底打通了长上下文大模型的经典死结：**带时间阻尼的架构外推极稳但容易忘掉超远细节；无阻尼的架构能捞回远处细节但超出训练长度就会外推崩盘。**
 
-在**衰减权重比纯正 Llama 2 还少 `1.4% ~ 1.6%`**、且通过 **`float64` 四层防作弊因果审计（未来泄露严格为 `0.00e+00`）** 的前提下，`v6-wormhole` 在 **4 大语料库（`1.3M → 28M`）** 上全面胜出：
+在**衰减权重比纯正 Llama 2 还少 `1.4% ~ 1.6%`**、且通过 **`float64` 四层防作弊因果审计（未来泄露严格为 `0.00e+00`）** 的前提下，`v6-wormhole` 在 **6 大基准任务（`1.3M → 28M`）** 上全面胜出：
 - **6M SOTA 对撞（WikiText-2）**：`4×` 外推 PPL 比 **FoX (ICLR 2025)** 低 **19.3%**（`34.72` vs `43.05`），同时在 `Dist=1536` 保持 **`32.3% (+0.59 ΔNLL)`** 超远捞针（ALiBi 与 FoX 全部归零 `+0.00`）。
-- **28M 扩参更强（RealWorld 16K）**：训内 PPL 低 **8.6%**（`34.95` vs `38.24`），`4×` 外推低 **81.6%**（`32.26` vs `175.29`），`Dist=1536` 捞针达到 Base 的 **4 倍准确率 / 11 倍 ΔNLL**（`41.1% / +1.34` vs `10.4% / +0.12`），且在**相同 GPU 墙钟时间下完成反超**（[查看同耗时曲线 →](docs/BENCHMARKS_zh.md#iso-wallclock)）。
+- **28M 扩参更强（RealWorld 16K）**：训内 PPL 低 **8.6%**（`34.95` vs `38.24`），`4×` 外推低 **81.6%**（`32.26` vs `175.29`），`Dist=1536` 捞针达到 Base 的 **4 倍准确率 / 11 倍 ΔNLL**（`41.1% / +1.34` vs `10.4% / +0.12`），且在**相同 GPU 墙钟时间下完成反超**（[查看同耗时 PPL 曲线 →](docs/BENCHMARKS_zh.md#iso-wallclock)）。
+- **跨语言共享流形（WMT14 翻译与零样本德法互译）**：`En→De` sacreBLEU 提升 **+22.0%**（`5.27` vs `4.32`）；在从未见过的**零样本 `De↔Fr`** 上相对增益翻倍至 **+41.1% / +42.1%**（[查看翻译实测 →](docs/BENCHMARKS_zh.md#translation)）。
 
 ---
 
@@ -34,15 +35,17 @@
 
 ## 二、 核心基准测试总览
 
-> 🔍 **深入查看完整数据：** [四大语料全景总表](docs/BENCHMARKS_zh.md#panoramic-summary) · [同步数与同耗时曲线](docs/BENCHMARKS_zh.md#iso-wallclock) · [Scaling Law 与 28M 捞针](docs/BENCHMARKS_zh.md#scaling-law) · [SOTA 强基线对撞](docs/BENCHMARKS_zh.md#sota-showdown) · [真实生成样本盲测](docs/BENCHMARKS_zh.md#samples)
+> 🔍 **深入查看完整数据：** [六大基准完整参数矩阵](docs/BENCHMARKS_zh.md#panoramic-summary) · [同耗时 PPL 效率](docs/BENCHMARKS_zh.md#iso-wallclock) · [Scaling Law 与 28M 捞针](docs/BENCHMARKS_zh.md#scaling-law) · [WMT14 与零样本德法](docs/BENCHMARKS_zh.md#translation) · [SOTA 对撞](docs/BENCHMARKS_zh.md#sota-showdown) · [样本对比](docs/BENCHMARKS_zh.md#samples)
 
-| 规模与语料 | 模型 | 衰减权重数 | 训内 PPL (`T=512`) | 4× 外推 (`T=2048`) | `Dist=1536` 捞针 (3×) |
+| 基准任务 (`dim/L/H`, 词表) | 模型 | 衰减权重数 | 训内 PPL (`T=512`) | 4× 外推 (`T=2048`) | `Dist=1536` 捞针 / BLEU |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **6.0M / WikiText-2** | Pure Llama 2 / FoX (ICLR'25) | `5.87M` / `5.87M` | `47.98` / `44.88` | `96.23` / `43.05` | `13.5% (+0.09)` / `23.7% (+0.00)` |
-| **6.0M / WikiText-2** | **`v6-wormhole` (Ours)** | **`5.77M`** (`-94K`) | **`37.50`** | **`34.72`** (`比 FoX 低 19.3%`) | **`32.3% (+0.59)`** |
-| **6.0M / TinyStories** | Pure Llama 2 vs **`v6-wormhole`** | `5.87M` vs **`5.77M`** | `5.50` vs **`5.20`** | `28.67` vs **`4.90`** (`-82.9%`) | `16.4%` vs **`32.6%`** |
-| **6.8M / FineWeb-Edu** | Pure Llama 2 vs **`v6-wormhole`** | `6.91M` vs **`6.82M`** | `37.52` vs **`34.87`** | `161.27` vs **`32.29`** (`-80.0%`) | `9.6% (+0.13)` vs **`29.2% (+0.55)`** |
-| **27.6M / RealWorld 16K** | Pure Llama 2 vs **`v6-wormhole`** | `27.66M` vs **`27.28M`** | `38.24` vs **`34.95`** | `175.29` vs **`32.26`** (`-81.6%`) | `10.4% (+0.12)` vs **`41.1% (+1.34)`** |
+| **6.0M WikiText-2** (`256/6L/4H`, 4K) | Pure Llama 2 / FoX (ICLR'25) | `5.87M` / `5.87M` | `47.98` / `44.88` | `96.23` / `43.05` | `13.5% (+0.09)` / `23.7% (+0.00)` |
+| **6.0M WikiText-2** (`256/6L/4H`, 4K) | **`v6-wormhole` (Ours)** | **`5.77M`** (`-94K`) | **`37.50`** | **`34.72`** (`比 FoX 低 19.3%`) | **`32.3% (+0.59)`** |
+| **6.0M TinyStories** (`256/6L/4H`, 4K) | Pure Llama 2 vs **`v6-wormhole`** | `5.87M` vs **`5.77M`** | `5.50` vs **`5.20`** | `28.67` vs **`4.90`** (`-82.9%`) | `16.4%` vs **`32.6%`** |
+| **6.8M FineWeb-Edu** (`256/6L/4H`, 8K) | Pure Llama 2 vs **`v6-wormhole`** | `6.91M` vs **`6.82M`** | `37.52` vs **`34.87`** | `161.27` vs **`32.29`** (`-80.0%`) | `9.6% (+0.13)` vs **`29.2% (+0.55)`** |
+| **27.6M RealWorld** (`512/6L/8H`, 16K) | Pure Llama 2 vs **`v6-wormhole`** | `27.66M` vs **`27.28M`** | `38.24` vs **`34.95`** | `175.29` vs **`32.26`** (`-81.6%`) | `10.4% (+0.12)` vs **`41.1% (+1.34)`** |
+| **6.8M WMT14 英译德** (`256/6L/4H`, 8K) | Pure Llama 2 vs **`v6-wormhole`** | `6.91M` vs **`6.82M`** | `36.63` vs **`32.69`** | — | **BLEU: `4.32` vs `5.27` (`+22.0%`)** |
+| **7.9M 零样本德法** (`256/6L/4H`, 12K) | Pure Llama 2 vs **`v6-wormhole`** | `7.96M` vs **`7.87M`** | `52.33` vs **`47.94`** | — | **De→Fr `+41.1%` / Fr→De `+42.1%`** |
 
 ---
 
@@ -50,8 +53,8 @@
 
 | 头宽 $D$ | 纤维 $d_r$ | 底时空 $d_g$ | 增广槽 | 打包总维度 | `V` 补零税 | 相对纯正 Llama 2 权重差 |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `32` (`1.3M`) | `24` | `6` | `+2` | **`32`** | `0` | **少 `14,848`** |
-| `64` (`6.0M`) | `48` | `14` | `+2` | **`64`** | `0` | **少 `93,696`** |
+| `32` (`1.3M, 4头`) | `24` | `6` | `+2` | **`32`** | `0` | **少 `14,848`** |
+| `64` (`6M–8M, 4头`) | `48` | `14` | `+2` | **`64`** | `0` | **少 `93,696`** |
 | `64` (`28M, 8头`) | `48` | `14` | `+2` | **`64`** | `0` | **少 `371,712`** |
 | `128` | `96` | `30` | `+2` | **`128`** | `0` | 严格少于 Base |
 
@@ -82,38 +85,37 @@ llama2-wormhole-gravity/
 ├── model.py                     # 核心 Transformer + UnifiedFiberGravityAttention (v6) + 泡利排斥解码
 ├── train.py                     # 多硬件训练脚本（L4/A100 bf16、T4 fp16、Apple MPS）
 ├── sample.py                    # 支持阻尼泡利排斥的自回归采样脚本
+├── run_all_tests.py / .sh       # 一键总控测试脚本（审计 + 训练 + 外推 + 捞针 + 翻译 BLEU）
 ├── audit_all.py                 # 6 维 float64 数学等价与四层零泄露防作弊审计套件
 ├── inspect_fields.py            # 逐层逐头物理参数开盒体检（σ_g、δτ、v0、沉默率）
 ├── eval_extrapolation.py        # 零样本长度外推评测（支持 Vanilla / Dynamic NTK / YaRN RoPE）
 ├── eval_needle.py               # 远距大海捞针精准回忆评测（64 -> 1536）
+├── eval_bleu_wmt14.py           # 官方 newstest2014 WMT14 英译德 sacreBLEU 评测脚本
+├── eval_zeroshot_defr.py        # 有监督 En->De/Fr + 零样本 De<->Fr sacreBLEU 评测脚本
 ├── run_sota_baselines.py        # 同条件 ALiBi (ICLR 2022) 与 FoX (ICLR 2025) 强基线训练脚本
-├── config/                      # 全套训练配置（WikiText-2 1.3M/6M、TinyStories、FineWeb-Edu、28M RealWorld）
-├── scripts/                     # HuggingFace 流式语料构建脚本（TinyStories、FineWeb-Edu、RealWorld 16K）
+├── config/                      # 全部 7 套基准配置（1.3M / 6M / 6.8M / 7.9M / 28M）
+├── scripts/                     # HuggingFace 流式语料构建脚本（覆盖 5 大语料库）
 ├── docs/
-│   ├── BENCHMARKS.md            # 完整英文基准档案（全景表、同耗时图、Scaling Law 与样本）
-│   ├── BENCHMARKS_zh.md         # 完整中文基准档案（全景表、同耗时图、Scaling Law 与样本）
-│   └── figures/                 # 5 张 300 DPI 论文级架构图与数据对比图
+│   ├── BENCHMARKS.md            # 完整英文基准档案（全景表、同耗时 PPL、翻译与样本）
+│   ├── BENCHMARKS_zh.md         # 完整中文基准档案（全景表、同耗时 PPL、翻译与样本）
+│   └── figures/                 # 6 张 300 DPI 论文级架构图与数据对比图
 ├── CITATION.cff / CITATION.bib  # GitHub 官方引用元数据与标准学术 BibTeX
 └── LICENSE / NOTICE             # MIT 协议（Andrej Karpathy + Dracen-W）与 Meta Llama 2 合规声明
 ```
 
 ---
 
-## 六、 快速开始与 6 维 `float64` 审计
+## 六、 一键快速测试与 `float64` 审计
 
 ```bash
-# 1. 运行 6 维超强审计（fp64 未来扰动=0.00e+00、未来梯度=0.00e+00、数学等价 <= 3.3e-16）
-python3 audit_all.py
+# 1. 仅跑 6 维 float64 防作弊审计（约 3 秒，零未来泄露验证）
+python3 run_all_tests.py --mode=audit
 
-# 2. 在 WikiText-2 上训练 6.0M / 512 上下文 v6-Wormhole（Colab L4 约 4 分钟）
-python3 train.py config/train_wikitext2_colab_scale.py \
-  --use_unified_gravity=True --use_wormhole=True --out_dir=out-6m-v6-wormhole
-
-# 3. 权重防作弊审计 + 物理体检 + 2048 外推 + 1536 大海捞针
-python3 audit_all.py --ckpt=out-6m-v6-wormhole/ckpt.pt
-python3 inspect_fields.py out-6m-v6-wormhole/ckpt.pt
-python3 eval_extrapolation.py out-6m-v6-wormhole --lengths=256,512,1024,2048
-python3 eval_needle.py out-6m-v6-wormhole --distances=64,128,256,512,1024,1536
+# 2. 一键全流程跑完任意基准（自动拉取数据 + 双模型训练 + 审计 + 评测 + 采样）
+python3 run_all_tests.py --mode=wikitext2   # L4 约 8 分钟：6M WikiText-2 + 2048 外推 + 1536 捞针
+python3 run_all_tests.py --mode=ende        # L4 约 12 分钟：6.8M WMT14 英译德 sacreBLEU
+python3 run_all_tests.py --mode=zeroshot    # L4 约 15 分钟：7.9M 三语零样本德法互译
+python3 run_all_tests.py --mode=28m         # L4 约 42 分钟：28M RealWorld 16K（8 头）大考
 ```
 
 ---
