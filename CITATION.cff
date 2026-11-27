@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use this architecture, code, or experimental findings in your research, please cite it as below."
-title: "Unified Fiber-Gravity & ER=EPR Wormhole Attention"
+title: "EPR Attention: Spacetime Folding and Spatial Gravitational Field Coupling"
 type: software
 authors:
   - alias: "Dracen-W"
 date-released: 2026-11-26
 version: "6.0.0"
 license: MIT
-repository-code: "https://github.com/Dracen-W/llama2-wormhole-gravity"
+repository-code: "https://github.com/Dracen-W/epr-attention"
 keywords:
   - large-language-models
   - attention-mechanism

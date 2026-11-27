@@ -42,7 +42,7 @@ always_save_checkpoint = False
 init_from = "scratch"  # 'scratch' or 'resume'
 export_bin = False
 wandb_log = False
-wandb_project = "llama2-wormhole-gravity"
+wandb_project = "epr-attention"
 wandb_run_name = "run" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
 # Dataset & Context Window

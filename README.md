@@ -2,9 +2,9 @@
 
 # EPR Attention (Euclidean-RBF, Proper-time & Resonance-fiber)
 
-**Edge-First, High-Density Long-Context Architecture on a Clean Llama 2 Backbone**
+**Spacetime Folding (ER=EPR) + Spatial Gravitational Field Coupling for Edge-First Long-Context Attention**
 
-**English** | [简体中文](README_zh.md) · [📊 v1.0 Legacy Benchmarks & Samples](docs/BENCHMARKS.md) · [🏷️ v1.0 Release Tag](https://github.com/Dracen-W/llama2-wormhole-gravity/releases/tag/1.0)
+**English** | [简体中文](README_zh.md) · [📊 v1.0 Legacy Benchmarks & Samples](docs/BENCHMARKS.md) · [🏷️ v1.0 Release Tag](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
@@ -12,11 +12,13 @@
 
 </div>
 
-> **Attribution:** Built with the **Meta Llama 2** architecture (Touvron et al., 2023) on top of Andrej Karpathy's [`llama2.c`](https://github.com/karpathy/llama2.c) (MIT License). See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`CITATION.bib`](CITATION.bib) for full license and citation terms.
+> **Attribution:** Built on Andrej Karpathy's [`llama2.c`](https://github.com/karpathy/llama2.c) (MIT License) and the **Meta Llama 2** architecture (Touvron et al., 2023). See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`CITATION.bib`](CITATION.bib) for full license and citation terms.
 
-> **🚧 Active Speed & Kernel Optimization Notice:** All 1.3M–28M benchmark scores below are **legacy baseline results from [`v1.0`](https://github.com/Dracen-W/llama2-wormhole-gravity/releases/tag/1.0)** (measured on the unoptimized PyTorch `SDPA` backend with an explicit $O(T^2)$ time mask). We are actively upgrading the architecture to **PyTorch `FlexAttention` + Native GQA + Asymmetric Edge KV-Cache (`EPRKVCache`)**. Early 1.1B hardware benchmarks on NVIDIA L4 already show **`Prefill@2k` surpassing FlashAttention-2 (`18,765` vs `18,569 tok/s`, `101.1%`)** with **`-20.7M` fewer parameters** and lower peak VRAM.
+> **🚧 Active Speed & Kernel Optimization Notice:** All 1.3M–28M benchmark scores below are **legacy baseline results from [`v1.0`](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)** (measured on the unoptimized PyTorch `SDPA` backend with an explicit $O(T^2)$ time mask). We are actively upgrading the architecture to **PyTorch `FlexAttention` + Native GQA + Asymmetric Edge KV-Cache (`EPRKVCache`)**. Early 1.1B hardware benchmarks on NVIDIA L4 already show **`Prefill@2k` surpassing FlashAttention-2 (`18,765` vs `18,569 tok/s`, `101.1%`)** with **`-20.7M` fewer parameters** and lower peak VRAM.
 
-**EPR Attention** *(formerly Unified Fiber-Gravity & ER=EPR Wormhole Attention)* is an **edge-first, high-density long-context architecture** designed so smaller models can run on everyday consumer GPUs, laptops, and edge devices while punching well above their parameter weight class. By replacing redundant attention parameters with compact geometric priors (**E**uclidean-RBF base spacetime, **P**roper-time nested decay, and **R**esonance-fiber RoPE + ER=EPR wormhole heads), it resolves the classic long-context dilemma: **damped attention extrapolates cleanly but forgets distant details, whereas undamped attention recalls distant needles but explodes beyond training length.**
+**EPR Attention** (**E**uclidean-RBF, **P**roper-time & **R**esonance-fiber Attention) is an **edge-first, high-density long-context attention mechanism** inspired by **ER=EPR spacetime folding and spatial gravitational field coupling**. Instead of relying solely on raw dot-product capacity, it couples a **spatial gravitational field** (low-dim Euclidean-RBF base spacetime + bilateral mass $M_i M_j$ + nested proper-time curvature) with **ER=EPR wormhole spacetime folding** (zero-decay, NoPE high-threshold wormhole heads that bridge distant resonant tokens directly across arbitrarily long sequences).
+
+This dual-geometry design resolves the classic long-context dilemma using **strictly fewer parameters** than standard Llama 2: **damped gravitational heads extrapolate cleanly without exploding, while ER=EPR spacetime-folding heads instantaneously retrieve distant needles across folded sequence distance.**
 
 ---
 
@@ -24,8 +26,8 @@
 
 ![EPR Attention Architecture](docs/figures/architecture_wormhole_attention.png)
 
-- **Orthogonal Fiber–Base Packing (`d_r + d_g + 2 == head_dim`)**: Splits each head into a directional **Resonance Fiber** ($d_r$) and a low-dim **Base Spacetime RBF** ($d_g$), folding bilateral mass ($M_i M_j$) and vacuum floor ($e^{v_0}$) into **one single $D$-aligned attention call with zero $V$ padding**.
-- **Dual-Regime Topology**: Damped **Solar-System Heads** (`Moon → Sat → Earth`) handle local/mid-range modeling with nested dynamic proper time; the **ER=EPR Wormhole Head(s)** use **zero time decay ($\delta\tau \equiv 0$) + NoPE + high vacuum throat ($v_0 \approx +2.5$) + tight RBF lock** to stay silent on noise yet instantaneously retrieve exact distant needles.
+- **Spatial Gravitational Field Coupling (`d_r + d_g + 2 == head_dim`)**: Splits each head into a directional **Resonance Fiber** ($d_r$) and a low-dim **Spatial Gravitational Base** ($d_g$, Euclidean-RBF potential), coupling bilateral mass ($M_i M_j$) and the vacuum floor ($e^{v_0}$) into **one single $D$-aligned attention call with zero $V$ padding**.
+- **ER=EPR Spacetime Folding + Solar-System Damping**: Damped **Solar-System Heads** (`Moon → Sat → Earth`) handle local/mid-range modeling with nested dynamic proper time; the **ER=EPR Wormhole Head(s)** implement **spacetime folding** via **zero time decay ($\delta\tau \equiv 0$) + NoPE + high vacuum throat ($v_0 \approx +2.5$) + tight RBF lock**—staying silent on background noise yet directly connecting resonant distant tokens regardless of sequence separation.
 - **FlexAttention + Asymmetric Edge KV-Cache (`EPRKVCache`)**: Eliminates the $O(T^2)$ time-mask memory wall via fused Triton `FlexAttention`, and enables **75%–87.5% KV-cache compression** at inference by evicting distant KV on damped heads while retaining full context only on Wormhole head(s).
 
 ---
@@ -42,9 +44,9 @@
 
 ---
 
-## 3. Legacy [`v1.0`](https://github.com/Dracen-W/llama2-wormhole-gravity/releases/tag/1.0) Benchmark Summary (`1.3M → 28M`)
+## 3. Legacy [`v1.0`](https://github.com/Dracen-W/epr-attention/releases/tag/1.0) Benchmark Summary (`1.3M → 28M`)
 
-> 📌 **Note:** The results below are **legacy accuracy baselines from release [`v1.0`](https://github.com/Dracen-W/llama2-wormhole-gravity/releases/tag/1.0)** (pre-FlexAttention `SDPA` backend, verified `0.00e+00` future leakage in `float64`). Full tables, Iso-Wallclock curves, and samples are archived in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
+> 📌 **Note:** The results below are **legacy accuracy baselines from release [`v1.0`](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)** (pre-FlexAttention `SDPA` backend, verified `0.00e+00` future leakage in `float64`). Full tables, Iso-Wallclock curves, and samples are archived in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
 
 | Benchmark (`dim/L/H`, Vocab) | Model | Decayed Params | Train PPL (`T=512`) | 4× Extrap (`T=2048`) | `Dist=1536` Needle / BLEU |
 | :--- | :--- | :---: | :---: | :---: | :---: |
@@ -82,10 +84,10 @@ python3 run_all_tests.py --mode=wikitext2
 
 ```bibtex
 @misc{dracenw2026epr,
-  title        = {EPR Attention: Euclidean-RBF, Proper-time and Resonance-fiber Attention},
+  title        = {EPR Attention: Spacetime Folding and Spatial Gravitational Field Coupling},
   author       = {Dracen-W},
   year         = {2026},
-  howpublished = {\url{https://github.com/Dracen-W/llama2-wormhole-gravity}},
+  howpublished = {\url{https://github.com/Dracen-W/epr-attention}},
   note         = {Built on karpathy/llama2.c and the Meta Llama 2 architecture}
 }
 ```

@@ -2,9 +2,9 @@
 
 # EPR Attention（欧氏 RBF · 固有时间 · 共振纤维注意力机制）
 
-**面向端侧与更多设备的轻量高密度长上下文架构**
+**基于 ER=EPR 时空折叠 + 空间引力场耦合的端侧轻量高密度长上下文注意力架构**
 
-[English](README.md) | **简体中文** · [📊 v1.0 旧版完整基准档案](docs/BENCHMARKS_zh.md) · [🏷️ v1.0 旧版存档 Tag](https://github.com/Dracen-W/llama2-wormhole-gravity/releases/tag/1.0)
+[English](README.md) | **简体中文** · [📊 v1.0 旧版完整基准档案](docs/BENCHMARKS_zh.md) · [🏷️ v1.0 旧版存档 Tag](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
@@ -12,11 +12,13 @@
 
 </div>
 
-> **归属与协议声明：** 本项目基于 **Meta Llama 2** 架构（Touvron et al., 2023）与 Andrej Karpathy 的 [`llama2.c`](https://github.com/karpathy/llama2.c)（MIT License）构建。完整许可与学术引用见 [`LICENSE`](LICENSE)、[`NOTICE`](NOTICE) 与 [`CITATION.bib`](CITATION.bib)。
+> **归属与协议声明：** 本项目基于 Andrej Karpathy 的 [`llama2.c`](https://github.com/karpathy/llama2.c)（MIT License）与 **Meta Llama 2** 架构（Touvron et al., 2023）构建。完整许可与学术引用见 [`LICENSE`](LICENSE)、[`NOTICE`](NOTICE) 与 [`CITATION.bib`](CITATION.bib)。
 
-> **🚧 速度与内核优化进行中声明：** 下方 1.3M–28M 的全套测试数据均为 **[`v1.0` 旧版基线成绩](https://github.com/Dracen-W/llama2-wormhole-gravity/releases/tag/1.0)**（当时基于未融合 $O(T^2)$ 时间掩码的旧版 PyTorch `SDPA` 测得）。当前仓库正在进行**底层速度与端侧内存优化（`FlexAttention` 融合核 + 原生 GQA + 非对称 `EPRKVCache` 剪枝）**——最新 1.1B 规模 NVIDIA L4 实测中，`Prefill@2k` 推理吞吐已**反超原生 FlashAttention-2（`18,765` vs `18,569 tok/s`，`101.1%`）**，同时参数更少（`-2,072 万`）、峰值显存更低。
+> **🚧 速度与内核优化进行中声明：** 下方 1.3M–28M 的全套测试数据均为 **[`v1.0` 旧版基线成绩](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)**（当时基于未融合 $O(T^2)$ 时间掩码的旧版 PyTorch `SDPA` 测得）。当前仓库正在进行**底层速度与端侧内存优化（`FlexAttention` 融合核 + 原生 GQA + 非对称 `EPRKVCache` 剪枝）**——最新 1.1B 规模 NVIDIA L4 实测中，`Prefill@2k` 推理吞吐已**反超原生 FlashAttention-2（`18,765` vs `18,569 tok/s`，`101.1%`）**，同时参数更少（`-2,072 万`）、峰值显存更低。
 
-**EPR Attention**（**E**uclidean-RBF, **P**roper-time & **R**esonance-fiber Attention，原名统一纤维—引力与 ER=EPR 虫洞注意力）定位于**面向端侧与消费级设备的轻量高密度长上下文模型框架**——用紧凑的物理几何先验替代冗余注意力参数，一举打通长上下文大模型的经典死结：**带时间阻尼的架构外推极稳但容易忘掉超远细节；无阻尼的架构能捞回远处细节但超出训练长度就会外推崩盘。**
+**EPR Attention**（**E**uclidean-RBF, **P**roper-time & **R**esonance-fiber Attention）是一套基于 **`llama2.c`** 框架构建的端侧轻量高密度长上下文注意力架构。其核心思想是**利用 ER=EPR 猜想做“时空折叠”，并结合“空间引力场耦合”来重构 Attention**：
+- **空间引力场耦合**：在低维底时空引入欧氏 RBF 引力势、双边质量耦合（$M_i M_j$）与太阳系嵌套动态固有时间，用紧凑的物理几何先验替代冗余点积参数，让阻尼头在超长外推时天然稳定不崩盘；
+- **ER=EPR 时空折叠**：将虫洞头设为**零时间衰减（$\delta\tau \equiv 0$）+ 无位置编码（NoPE）+ 高真空喉道阈值**，平时静默不污染外推，一旦远古 Token 与当前查询发生强共振，即可无视序列距离直接“折叠时空”瞬间捞回远古信息。
 
 ---
 
@@ -24,8 +26,8 @@
 
 ![EPR Attention 架构图](docs/figures/architecture_wormhole_attention.png)
 
-- **正交纤维—底时空精确切分（`d_r + d_g + 2 == head_dim`）**：将每个头拆分为定向**共振纤维**（$d_r$）与低维**底时空欧氏 RBF**（$d_g$），把双边质量（$M_i M_j$）与真空底噪（$e^{v_0}$）代数折叠进**单次严格 $D$ 维对齐的注意力计算，`V` 通道零补零**。
-- **双态时空拓扑**：阻尼**太阳系头**（`Moon → Sat → Earth`）以嵌套动态固有时间处理近中程语感；**ER=EPR 虫洞头**采用 **零时间衰减（$\delta\tau \equiv 0$）+ NoPE + 高真空喉道（$v_0 \approx +2.5$）+ 紧缩底时空 RBF 锁**，平时静默不污染外推，强共振时无视距离瞬间扯回远古“针”。
+- **空间引力场耦合与正交切分（`d_r + d_g + 2 == head_dim`）**：将每个头拆分为定向**共振纤维**（$d_r$）与低维**底时空欧氏 RBF 引力场**（$d_g$），把双边引力质量（$M_i M_j$）与真空底噪（$e^{v_0}$）代数折叠进**单次严格 $D$ 维对齐的注意力计算，`V` 通道零补零**。
+- **ER=EPR 时空折叠 + 太阳系嵌套阻尼**：阻尼**太阳系头**（`Moon → Sat → Earth`）以嵌套动态固有时间处理近中程语感；**ER=EPR 虫洞头**通过零衰减 + NoPE + 高真空喉道（$v_0 \approx +2.5$）+ 紧缩 RBF 锁实现“时空折叠”，强共振时跨越数千 Token 精准回溯。
 - **`FlexAttention` + 端侧非对称 KV-Cache（`EPRKVCache`）**：用 Triton `FlexAttention` 彻底消灭 $O(T^2)$ 时间掩码显存墙；推理时对阻尼头做固定滑窗剪枝、仅在虫洞头保留全长 KV，实测可削减 **75%–87.5%** 长上下文 KV-Cache 内存。
 
 ---
@@ -42,9 +44,9 @@
 
 ---
 
-## 三、 [`v1.0` 旧版](https://github.com/Dracen-W/llama2-wormhole-gravity/releases/tag/1.0) 核心基准总览（`1.3M → 28M`）
+## 三、 [`v1.0` 旧版](https://github.com/Dracen-W/epr-attention/releases/tag/1.0) 核心基准总览（`1.3M → 28M`）
 
-> 📌 **说明：** 以下为 **[`v1.0` 旧版](https://github.com/Dracen-W/llama2-wormhole-gravity/releases/tag/1.0)** 留档精度成绩（优化前 SDPA 后端，已通过 `float64` 零未来泄露审计）。完整参数矩阵、同耗时 PPL 与样本对比归档于 [`docs/BENCHMARKS_zh.md`](docs/BENCHMARKS_zh.md)。
+> 📌 **说明：** 以下为 **[`v1.0` 旧版](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)** 留档精度成绩（优化前 SDPA 后端，已通过 `float64` 零未来泄露审计）。完整参数矩阵、同耗时 PPL 与样本对比归档于 [`docs/BENCHMARKS_zh.md`](docs/BENCHMARKS_zh.md)。
 
 | 基准任务 (`dim/L/H`, 词表) | 模型 | 衰减权重数 | 训内 PPL (`T=512`) | 4× 外推 (`T=2048`) | `Dist=1536` 捞针 / BLEU |
 | :--- | :--- | :---: | :---: | :---: | :---: |
@@ -60,7 +62,7 @@
 
 ## 四、 核心公式与快速上手
 
-$$\Psi_h(i, j) = \underbrace{\frac{q_{\text{res},i}\cdot k_{\text{res},j}}{\sqrt{d_r}}}_{\text{纤维定向共振 (R)}} + \underbrace{u_{\text{recv},i} + u_{\text{emit},j}}_{\text{双边引力质量 } M_i M_j} - \underbrace{\frac{\|z_i - z_j\|_2^2}{2\sigma_h^2\sqrt{d_g}}}_{\text{欧氏 RBF (E)}} - \underbrace{(\tau_{h,i} - \tau_{h,j})}_{\text{固有时间 (P)}}, \qquad W_h(i, j) = \frac{e^{\Psi_h(i, j)}}{e^{v_{0,h}} + \sum_{k \le i} e^{\Psi_h(i, k)}}$$
+$$\Psi_h(i, j) = \underbrace{\frac{q_{\text{res},i}\cdot k_{\text{res},j}}{\sqrt{d_r}}}_{\text{纤维定向共振 (R)}} + \underbrace{u_{\text{recv},i} + u_{\text{emit},j}}_{\text{双边引力质量 } M_i M_j} - \underbrace{\frac{\|z_i - z_j\|_2^2}{2\sigma_h^2\sqrt{d_g}}}_{\text{空间引力场 RBF (E)}} - \underbrace{(\tau_{h,i} - \tau_{h,j})}_{\text{固有时间 (P)}}, \qquad W_h(i, j) = \frac{e^{\Psi_h(i, j)}}{e^{v_{0,h}} + \sum_{k \le i} e^{\Psi_h(i, k)}}$$
 
 ```bash
 # 1. 运行 6 维 float64 防作弊因果与等价性审计（约 3 秒）
@@ -82,10 +84,10 @@ python3 run_all_tests.py --mode=wikitext2
 
 ```bibtex
 @misc{dracenw2026epr,
-  title        = {EPR Attention: Euclidean-RBF, Proper-time and Resonance-fiber Attention},
+  title        = {EPR Attention: Spacetime Folding and Spatial Gravitational Field Coupling},
   author       = {Dracen-W},
   year         = {2026},
-  howpublished = {\url{https://github.com/Dracen-W/llama2-wormhole-gravity}},
+  howpublished = {\url{https://github.com/Dracen-W/epr-attention}},
   note         = {Built on karpathy/llama2.c and the Meta Llama 2 architecture}
 }
 ```
