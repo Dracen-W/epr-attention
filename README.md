@@ -2,89 +2,117 @@
 
 # EPR Attention (Euclidean-RBF, Proper-time & Resonance-fiber)
 
-**Spacetime Folding (ER=EPR) + Spatial Gravitational Field Coupling for Edge-First Long-Context Attention**
+**An Experimental Long-Context Attention Mechanism Built on `llama2.c`**
 
-**English** | [简体中文](README_zh.md) · [📊 v1.0 Legacy Benchmarks & Samples](docs/BENCHMARKS.md) · [🏷️ v1.0 Release Tag](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
+**English** | [简体中文](README_zh.md) · [📐 Math & Derivations](docs/MATH.md) · [📊 v1.0 Legacy Archive](docs/BENCHMARKS.md) · [🏷️ v1.0 Release Tag](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
-[![Causality Audit](https://img.shields.io/badge/fp64%20Causality%20Audit-0.00e+00%20Leak-brightgreen)](audit_all.py)
+[![8-Pillar Audit](https://img.shields.io/badge/8--Pillar%20Audit-0.00e+00%20Leak-brightgreen)](audit_all.py)
 
 </div>
 
-> **Attribution:** Built on Andrej Karpathy's [`llama2.c`](https://github.com/karpathy/llama2.c) (MIT License) and the **Meta Llama 2** architecture (Touvron et al., 2023). See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`CITATION.bib`](CITATION.bib) for full license and citation terms.
+> **Attribution & Scope:** Built on Andrej Karpathy's [`llama2.c`](https://github.com/karpathy/llama2.c) (MIT License) and the **Meta Llama 2** architecture (Touvron et al., 2023). Note that `export.py`, `run.c`, and `runq.c` are inherited from `llama2.c` and **do not yet support EPR Attention** (Python/PyTorch only). See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`CITATION.bib`](CITATION.bib).
 
-> **🚧 Active Speed & Kernel Optimization Notice:** All 1.3M–28M benchmark scores below are **legacy baseline results from [`v1.0`](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)** (measured on the unoptimized PyTorch `SDPA` backend with an explicit $O(T^2)$ time mask). We are actively upgrading the architecture to **PyTorch `FlexAttention` + Native GQA + Asymmetric Edge KV-Cache (`EPRKVCache`)**. Early 1.1B hardware benchmarks on NVIDIA L4 already show **`Prefill@2k` surpassing FlashAttention-2 (`18,765` vs `18,569 tok/s`, `101.1%`)** with **`-20.7M` fewer parameters** and lower peak VRAM.
+> **Physics Inspiration Disclaimer:** The dual-regime topology and scoring geometry of **EPR Attention** are **inspired by** ER=EPR spacetime folding and spatial gravitational field intuition—**not** derived from general relativity or quantum gravity equations. All components are implemented as standard, differentiable PyTorch primitives that fold algebraically into a single $D$-aligned attention kernel (see [`docs/MATH.md`](docs/MATH.md)).
 
-**EPR Attention** (**E**uclidean-RBF, **P**roper-time & **R**esonance-fiber Attention) is an **edge-first, high-density long-context attention mechanism** inspired by **ER=EPR spacetime folding and spatial gravitational field coupling**. Instead of relying solely on raw dot-product capacity, it couples a **spatial gravitational field** (low-dim Euclidean-RBF base spacetime + bilateral mass $M_i M_j$ + nested proper-time curvature) with **ER=EPR wormhole spacetime folding** (zero-decay, NoPE high-threshold wormhole heads that bridge distant resonant tokens directly across arbitrarily long sequences).
-
-This dual-geometry design resolves the classic long-context dilemma using **strictly fewer parameters** than standard Llama 2: **damped gravitational heads extrapolate cleanly without exploding, while ER=EPR spacetime-folding heads instantaneously retrieve distant needles across folded sequence distance.**
-
----
-
-## 1. Architecture Overview
-
-![EPR Attention Architecture](docs/figures/architecture_wormhole_attention.png)
-
-- **Spatial Gravitational Field Coupling (`d_r + d_g + 2 == head_dim`)**: Splits each head into a directional **Resonance Fiber** ($d_r$) and a low-dim **Spatial Gravitational Base** ($d_g$, Euclidean-RBF potential), coupling bilateral mass ($M_i M_j$) and the vacuum floor ($e^{v_0}$) into **one single $D$-aligned attention call with zero $V$ padding**.
-- **ER=EPR Spacetime Folding + Solar-System Damping**: Damped **Solar-System Heads** (`Moon → Sat → Earth`) handle local/mid-range modeling with nested dynamic proper time; the **ER=EPR Wormhole Head(s)** implement **spacetime folding** via **zero time decay ($\delta\tau \equiv 0$) + NoPE + high vacuum throat ($v_0 \approx +2.5$) + tight RBF lock**—staying silent on background noise yet directly connecting resonant distant tokens regardless of sequence separation.
-- **FlexAttention + Asymmetric Edge KV-Cache (`EPRKVCache`)**: Eliminates the $O(T^2)$ time-mask memory wall via fused Triton `FlexAttention`, and enables **75%–87.5% KV-cache compression** at inference by evicting distant KV on damped heads while retaining full context only on Wormhole head(s).
+**EPR Attention** (**E**uclidean-RBF, **P**roper-time & **R**esonance-fiber Attention) combines three verified core primitives (plus a standalone zero-dependency implementation in [`epr_attention.py`](epr_attention.py)):
+1. **Euclidean-RBF + Resonance Fiber Packing (`d_r + d_g + 2 == head_dim`)**: Folds a low-dim latent Euclidean-RBF potential and directional dot-product into one hardware-aligned attention call with **zero $V$ padding** and strictly fewer parameters than standard Llama 2.
+2. **Learnable Vacuum Floor ($e^{v_0}$)**: Equivalent to Softmax1 / Attention Sink, allowing heads to stay silent on irrelevant context.
+3. **Dual-Regime Head Topology**: Damped heads apply RoPE + data-dependent cumulative decay ($\tau_i - \tau_j$) for stable extrapolation and $O(1)$ sliding-window KV eviction; **Wormhole head(s)** use **NoPE + zero decay ($\delta\tau \equiv 0$) + high vacuum threshold ($v_0 \approx +2.5$)** for distance-independent long-range retrieval.
 
 ---
 
-## 2. Speed Optimization Preview (1.1B Scale on NVIDIA L4)
+## 1. Honest Tradeoffs: Compute, Speed & Memory
 
-*Measured on exact TinyLlama-1.1B topology (`dim=2048, 22L, 32Q/4KV GQA, D=64, bfloat16`), comparing standard FlashAttention-2 vs legacy `v1.0` SDPA vs new `FlexAttention + Native GQA`:*
+We explicitly report per-step overhead alongside Iso-PPL efficiency and KV-cache savings:
 
-| 1.1B Variant (NVIDIA L4) | Total Params | Train (`T=1024`) | `Prefill@2k` | Peak VRAM | Speed vs FA2 |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **TinyLlama-1.1B (Base, FA2)** | `1100.05M` | `3,504 tok/s` | `18,569 tok/s` | `10.51 GB` | `100.0%` / `100.0%` |
-| **EPR-1.1B (`v1.0` Legacy SDPA)** | `1079.33M` (`-20.7M`) | `1,247 tok/s` | `2,462 tok/s` | `10.37 GB` | `35.6%` / `13.3%` |
-| **EPR-1.1B (`FlexAttention` + GQA)** | **`1079.33M` (`-20.7M`)** | **`3,399 tok/s`** (`2.73×`) | **`18,765 tok/s`** (`7.62×`) | **`10.32 GB`** | **`97.0%` / `101.1%`** |
+| Benchmark (NVIDIA L4, `bfloat16`) | Pure Llama 2 (FA2) | EPR Attention | Honest Takeaway |
+| :--- | :---: | :---: | :--- |
+| **6M `d0` Single-Step Time (`T=512, B=32`)** | `32.85 ms` (`499k tok/s`) | `53.70 ms` (`305k tok/s`) | **1.63× slower per step** at 6M (small-model kernel-launch bound; MFU `~4%`). |
+| **6M `d0` Iso-PPL (`Val PPL ≤ 57.7`)** | `1,500` steps (`49.3 s`) | **`750` steps (`39.1 s`)** | **-50.0% steps/tokens**, **-20.7% pure GPU time**, **-50.8% est. FLOPs**. |
+| **6M `d0` Capacity (`Step 3000 Train Loss`)** | `2.5766` (PPL `13.15`) | **`2.2618` (PPL `9.60`)** | **-27.0% lower Train PPL** with `-94K` fewer parameters. |
+| **1.1B `FlexAttention` + Native GQA (`T=1024`)** | `3,504 tok/s` (Train)<br>`18,569 tok/s` (`Prefill@2k`) | **`3,399 tok/s` (`97.0%`)**<br>**`18,765 tok/s` (`101.1%`)** | Kernel-launch overhead amortizes at 1.1B (`-20.7M` params, `10.32` vs `10.51 GB` VRAM). |
 
----
-
-## 3. Legacy [`v1.0`](https://github.com/Dracen-W/epr-attention/releases/tag/1.0) Benchmark Summary (`1.3M → 28M`)
-
-> 📌 **Note:** The results below are **legacy accuracy baselines from release [`v1.0`](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)** (pre-FlexAttention `SDPA` backend, verified `0.00e+00` future leakage in `float64`). Full tables, Iso-Wallclock curves, and samples are archived in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
-
-| Benchmark (`dim/L/H`, Vocab) | Model | Decayed Params | Train PPL (`T=512`) | 4× Extrap (`T=2048`) | `Dist=1536` Needle / BLEU |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **6.0M WikiText-2** (`256/6L/4H`, 4K) | Pure Llama 2 / FoX (ICLR'25) | `5.87M` / `5.87M` | `47.98` / `44.88` | `96.23` / `43.05` | `13.5% (+0.09)` / `23.7% (+0.00)` |
-| **6.0M WikiText-2** (`256/6L/4H`, 4K) | **EPR (`v1.0`)** | **`5.77M`** (`-94K`) | **`37.50`** | **`34.72`** (`-19.3% vs FoX`) | **`32.3% (+0.59)`** |
-| **6.0M TinyStories** (`256/6L/4H`, 4K) | Pure Llama 2 vs **EPR (`v1.0`)** | `5.87M` vs **`5.77M`** | `5.50` vs **`5.20`** | `28.67` vs **`4.90`** (`-82.9%`) | `16.4%` vs **`32.6%`** |
-| **6.8M FineWeb-Edu** (`256/6L/4H`, 8K) | Pure Llama 2 vs **EPR (`v1.0`)** | `6.91M` vs **`6.82M`** | `37.52` vs **`34.87`** | `161.27` vs **`32.29`** (`-80.0%`) | `9.6% (+0.13)` vs **`29.2% (+0.55)`** |
-| **27.6M RealWorld** (`512/6L/8H`, 16K) | Pure Llama 2 vs **EPR (`v1.0`)** | `27.66M` vs **`27.28M`** | `38.24` vs **`34.95`** | `175.29` vs **`32.26`** (`-81.6%`) | `10.4% (+0.12)` vs **`41.1% (+1.34)`** |
-| **6.8M WMT14 En→De** (`256/6L/4H`, 8K) | Pure Llama 2 vs **EPR (`v1.0`)** | `6.91M` vs **`6.82M`** | `36.63` vs **`32.69`** | — | **BLEU: `4.32` vs `5.27` (`+22.0%`)** |
-| **7.9M Zero-Shot De↔Fr** (`256/6L/4H`, 12K) | Pure Llama 2 vs **EPR (`v1.0`)** | `7.96M` vs **`7.87M`** | `52.33` vs **`47.94`** | — | **De→Fr `+41.1%` / Fr→De `+42.1%`** |
+> **Important Backend Caveat:** Fused `FlexAttention` activates automatically on CUDA `bf16/fp16` with `T >= 256` and **`dropout == 0.0`**. When `dropout > 0` (e.g., small WikiText-2 runs), training falls back to masked `SDPA` with an explicit $O(T^2)$ mask.
 
 ---
 
-## 4. Core Equation & Quick Start
+## 2. Verified 6M Benchmarks (Un-Diluted Extrapolation, 200-Trial Recall & KV Eviction)
 
-$$\Psi_h(i, j) = \underbrace{\frac{q_{\text{res},i}\cdot k_{\text{res},j}}{\sqrt{d_r}}}_{\text{Resonance Fiber}} + \underbrace{u_{\text{recv},i} + u_{\text{emit},j}}_{\text{Bilateral Mass } M_i M_j} - \underbrace{\frac{\|z_i - z_j\|_2^2}{2\sigma_h^2\sqrt{d_g}}}_{\text{Euclidean-RBF}} - \underbrace{(\tau_{h,i} - \tau_{h,j})}_{\text{Proper-Time}}, \qquad W_h(i, j) = \frac{e^{\Psi_h(i, j)}}{e^{v_{0,h}} + \sum_{k \le i} e^{\Psi_h(i, k)}}$$
+*All results below are measured on `6.0M` WikiText-2 (`dim=256, 6L, 4H, T_train=512`, `5.78M` EPR vs `5.87M` Llama 2). Note: `ΔNLL` denotes the reduction in target-token Negative Log-Likelihood when the distant needle is present vs. absent.*
+
+### 2.1 Un-Diluted Bucketed Extrapolation & 200-Trial Long-Range Recall
+| Model | `[0:256]` | `[256:512]` | `[512:1024]` | `[1024:2048]` | Needle `Dist=1536` (200 trials) | 2-Key Assoc. Recall `Dist=1024 / 1536` (Random=50%) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Pure Llama 2** | `49.51` | `46.80` | `84.77` | `146.90` | `14.6±1.4% (+0.11)` | `77.5±5.8% (+1.74)` / `73.5±6.1% (+1.42)` |
+| **EPR Attention** | **`40.30`** | **`35.36`** | **`34.53`** | **`34.06`** | **`31.9±1.9% (+0.48)`** | **`88.0±4.5% (+2.84)` / `81.0±5.4% (+2.24)`** |
+
+*(Legacy `v1.0` SOTA comparison on the same 6M WikiText-2 setup: **FoX (ICLR'25)** reached `PPL@512 = 44.88`, `PPL@2048 = 43.05`, `Dist=1536 Needle = 23.7% (+0.00)` vs EPR `37.50 / 34.72 / 32.3% (+0.59)`. See [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).)*
+
+### 2.2 Asymmetric `EPRKVCache` Eviction Quality Cost (`eval_kv_eviction.py`)
+Evicting distant KV strictly on damped heads (`0..H-2`) into a fixed ring buffer of size `W`, while keeping full context on the Wormhole head (`H-1`):
+
+| Damped Window `W` | KV Saved `@2K` | KV Saved `@8K` | Tail PPL `[1024:2048]` | Needle `Dist=1536` (200 trials) |
+| :--- | :---: | :---: | :---: | :---: |
+| `Full (∞)` | `0.0%` | `0.0%` | `36.06` | `30.2±1.8% (ΔNLL +0.44)` |
+| `W = 256` | `65.6%` | `72.7%` | `36.07` (`+0.01`) | `30.2±1.8% (ΔNLL +0.44)` |
+| **`W = 128`** | **`70.3%`** | **`73.8%`** | **`36.10` (`+0.04`)** | **`30.1±1.8% (ΔNLL +0.44)`** |
+| `W = 64` | `72.7%` | `74.4%` | `36.30` (`+0.24`) | `30.5±1.8% (ΔNLL +0.44)` |
+
+### 2.3 Full 6M Single-Switch Ablation Study
+| Variant | `PPL@512` | Tail `[1024:2048]` | Needle `Dist=1536` | 2-Key Assoc. `Dist=1024` | Verdict |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Full EPR (`v6`)** | **`37.73`** | **`34.06`** | **`31.9% (+0.48)`** | `88.0% (+2.84)` | Baseline |
+| `w/o Vacuum Floor` | `40.76` (`+3.03`) | `37.63` (`+3.57`) | `28.1% (+0.22)` | `88.5% (+2.73)` | **Essential (#1)** |
+| `w/o Euclidean-RBF` | `39.54` (`+1.81`) | `36.55` (`+2.49`) | `28.4% (+0.28)` | `85.0% (+2.73)` | **Essential (#2)** |
+| `w/o Wormhole Head` | `39.52` (`+1.79`) | `36.35` (`+2.29`) | `24.8% (+0.00)` | `85.0% (+2.65)` | **Essential (#3 — sole driver of long recall)** |
+| `w/o Nested Time` | `37.82` (`+0.09`) | `34.14` (`+0.08`) | `31.9% (+0.49)` | `88.5% (+2.86)` | Redundant (prunable for speed) |
+| `w/o Bilateral Mass` | `37.75` (`+0.02`) | `33.94` (`-0.12`) | `32.0% (+0.50)` | `89.0% (+2.88)` | Redundant (prunable for params/speed) |
+
+---
+
+## 3. Relation to Prior Work & Verification Status
+
+**Relation to Existing Literature:**
+- **Cumulative Data-Dependent Decay ($\tau$)**: Mathematically isomorphic to **FoX (Forgetting Transformer)** when the nested cascade is removed (`M = I`).
+- **Vacuum Floor ($e^{v_0}$)**: Equivalent to **Softmax1 (Attention Is Off By One)** / learnable **Attention Sink**.
+- **NoPE Wormhole Head**: Related to hybrid RoPE/NoPE schemes such as **iRoPE** (Llama 4), differentiated here by pairing NoPE + zero decay with a high vacuum threshold (`v0 ≈ +2.5`) and Euclidean-RBF key locking.
+- **Euclidean-RBF Potential**: Related to L2 / Gaussian-bias attention, evaluated on learned low-dimensional coordinates $z$ and algebraically folded into $D$-aligned dot-product attention.
+
+**Verified vs. Unverified Checklist:**
+- ✅ **Verified**: 8-pillar audit (`audit_all.py`: `fp64` textbook parity `3.33e-16`, zero future leak `0.00e+00`, CUDA `bf16` FlexAttention parity `1.95e-03` & zero leak `0.00e+00`, stateful `EPRKVCache` parity `3.89e-16`), un-diluted bucketed extrapolation, 200-trial needle + 2-key associative recall, `W=128` KV-eviction zero-drop, 6M full single-switch ablation, 1.1B hardware throughput.
+- ⏳ **Not Yet Verified**: Multi-seed variance across all runs; quality/perplexity at `≥100M` / `1.1B` scale (1.1B numbers above are hardware throughput only); C-runtime (`run.c` / `export.py`) support.
+
+---
+
+## 4. Quick Start
 
 ```bash
-# 1. Run 6-pillar fp64 causality & mathematical parity audit (~3 seconds)
-python3 run_all_tests.py --mode=audit
+# 1. Run 8-pillar audit (fp64 causality + CUDA bf16 FlexAttention + stateful EPRKVCache)
+python3 audit_all.py
 
-# 2. Benchmark FlexAttention speedup & Asymmetric EPRKVCache memory savings (75% - 87.5%)
-python3 bench_epr_speed.py
+# 2. Standalone zero-dependency core module
+# See epr_attention.py (EPRConfig, EPRAttention, EPRKVCache)
 
-# 3. One-click full benchmark suites (WikiText-2 / WMT14 / Zero-Shot De<->Fr / 28M RealWorld)
-python3 run_all_tests.py --mode=wikitext2
+# 3. Evaluate un-diluted extrapolation, 200-trial needle, 2-key recall & KV-eviction cost
+python3 eval_extrapolation.py out-6m-base out-6m-v6-wormhole --lengths=256,512,1024,2048
+python3 eval_needle.py out-6m-base out-6m-v6-wormhole --distances=64,128,256,512,1024,1536
+python3 eval_associative_recall.py out-6m-base out-6m-v6-wormhole
+python3 eval_kv_eviction.py out-6m-v6-wormhole
 ```
 
 ---
 
-## 5. License & Citation
+## 5. Disclosure, License & Citation
 
-- **License**: MIT License (preserving Andrej Karpathy's original `llama2.c` copyright; see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) for Meta Llama 2 compliance).
-- **Citation**: Click **"Cite this repository"** in the right sidebar ([`CITATION.cff`](CITATION.cff)) or copy below:
+- **AI Assistance Disclosure**: AI assistants were used during this project for code implementation, auditing scripts, benchmark automation, and documentation drafting; all architectural hypotheses, experimental decisions, and hardware verification runs were directed and executed by the author.
+- **License**: MIT License (preserving Andrej Karpathy's original `llama2.c` copyright; see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)).
+- **Citation**: Use **"Cite this repository"** ([`CITATION.cff`](CITATION.cff)) or copy:
 
 ```bibtex
 @misc{dracenw2026epr,
-  title        = {EPR Attention: Spacetime Folding and Spatial Gravitational Field Coupling},
+  title        = {EPR Attention: An Experimental Long-Context Attention Mechanism Built on llama2.c},
   author       = {Dracen-W},
   year         = {2026},
   howpublished = {\url{https://github.com/Dracen-W/epr-attention}},

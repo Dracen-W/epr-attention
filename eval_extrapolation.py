@@ -101,6 +101,35 @@ def main():
         label = os.path.basename(path.rstrip("/"))
         print(f"{label:32s} | {margs.max_seq_len:7d} | {rope_mode:>7s} | " + " | ".join(f"{p:10.2f}" for p in ppls))
 
+        # B1 Fixed-Position Bucketed PPL on max(lengths) to eliminate window-dilution bias
+        L_max = max(lengths)
+        if L_max >= 512:
+            buckets = [(0, 256), (256, 512)]
+            if L_max >= 1024:
+                buckets.append((512, 1024))
+            if L_max >= 2048:
+                buckets.append((1024, 2048))
+            bucket_losses = {b: [] for b in buckets}
+            with torch.no_grad():
+                if rope_mode != "vanilla":
+                    fc, fs = make_rope_table(head_dim, L_max, margs.max_seq_len, mode=rope_mode)
+                    model.register_buffer("freqs_cos", fc.to(device), persistent=False)
+                    model.register_buffer("freqs_sin", fs.to(device), persistent=False)
+                rng = np.random.RandomState(1234)
+                max_idx = len(data) - L_max - 1
+                for _ in range(eval_batches):
+                    ix = rng.randint(0, max_idx, size=(batch_size,))
+                    x = torch.stack([torch.from_numpy(data[i : i + L_max].astype(np.int64)) for i in ix]).to(device)
+                    y = torch.stack([torch.from_numpy(data[i + 1 : i + 1 + L_max].astype(np.int64)) for i in ix]).to(device)
+                    logits = model(x, y)
+                    tok_loss = torch.nn.functional.cross_entropy(
+                        logits.view(-1, logits.size(-1)), y.view(-1), reduction="none"
+                    ).view(batch_size, L_max)
+                    for b0, b1 in buckets:
+                        bucket_losses[(b0, b1)].append(tok_loss[:, b0:b1].mean().item())
+            b_str = " | ".join(f"[{b0}:{b1}]: {math.exp(min(20.0, float(np.mean(bucket_losses[(b0, b1)])))):6.2f}" for b0, b1 in buckets)
+            print(f"  └─ Bucketed PPL (no dilution)  | {b_str}")
+
 
 if __name__ == "__main__":
     main()

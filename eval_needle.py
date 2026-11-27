@@ -21,7 +21,7 @@ from model import ModelArgs, Transformer
 
 
 @torch.no_grad()
-def evaluate_needle_recall(model, data, distances, needle_len=16, prefix_cue=4, num_trials=32, device="cuda"):
+def evaluate_needle_recall(model, data, distances, needle_len=16, prefix_cue=4, num_trials=200, device="cuda"):
     cols = []
     for D in distances:
         rng = np.random.RandomState(2026)
@@ -59,7 +59,7 @@ def evaluate_needle_recall(model, data, distances, needle_len=16, prefix_cue=4, 
 def main():
     ckpt_dirs = []
     distances = [64, 128, 256, 512, 1024, 1536]
-    num_trials = 32
+    num_trials = 200
     device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
 
     for a in sys.argv[1:]:

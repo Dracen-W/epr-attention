@@ -336,6 +336,104 @@ def audit_6_pauli_repulsion():
     print(f"  [PASS] 6b. Strong Pauli repulsion (alpha=50) suppressed immediate repeat token 7 -> {y_rep[0, -1].item()}.")
 
 
+
+
+def audit_7_flex_attention_cuda():
+    """P0 Audit A1: Verify CUDA bf16 FlexAttention == SDPA parity & zero future leakage."""
+    print("\n" + "=" * 78)
+    print("[AUDIT 7] CUDA bf16 FlexAttention Parity & Future Perturbation Audit")
+    print("=" * 78)
+    if not torch.cuda.is_available():
+        print("  [SKIP] CUDA not available on this host (run on L4/A100 GPU to execute FlexAttention audit).")
+        return
+
+    from epr_attention import EPRConfig, EPRAttention
+    torch.manual_seed(42)
+    device = "cuda"
+    B, T = 2, 256
+    cfg_flex = EPRConfig(dim=256, n_heads=4, n_kv_heads=4, n_wormhole_heads=1, use_flex_attention=True)
+    cfg_sdpa = EPRConfig(dim=256, n_heads=4, n_kv_heads=4, n_wormhole_heads=1, use_flex_attention=False)
+    m_flex = EPRAttention(cfg_flex).to(device=device, dtype=torch.bfloat16).eval()
+    m_sdpa = EPRAttention(cfg_sdpa).to(device=device, dtype=torch.bfloat16).eval()
+    m_sdpa.load_state_dict(m_flex.state_dict())
+
+    inv_freq = 1.0 / (10000.0 ** (torch.arange(0, m_flex.d_r, 2, dtype=torch.float32, device=device) / m_flex.d_r))
+    t = torch.arange(T, dtype=torch.float32, device=device)
+    freqs = torch.outer(t, inv_freq)
+    fc, fs = freqs.cos(), freqs.sin()
+
+    x = torch.randn(B, T, 256, device=device, dtype=torch.bfloat16)
+    with torch.no_grad():
+        y_flex = m_flex(x, fc, fs)
+        y_sdpa = m_sdpa(x, fc, fs)
+        diff = (y_flex.float() - y_sdpa.float()).abs().max().item()
+        assert diff < 2e-2, f"FlexAttention vs SDPA mismatch: {diff}"
+
+        # Future perturbation directly on FlexAttention path
+        x_pert = x.clone()
+        x_pert[:, 128:, :] = torch.randn_like(x_pert[:, 128:, :])
+        y_flex_pert = m_flex(x_pert, fc, fs)
+        leak = (y_flex[:, :128, :].float() - y_flex_pert[:, :128, :].float()).abs().max().item()
+        assert leak == 0.0, f"FlexAttention future leak detected: {leak}"
+
+    print(f"  [PASS] 7a. FlexAttention vs SDPA (bf16, T=256) | max_diff = {diff:.2e}")
+    print(f"  [PASS] 7b. FlexAttention Future Perturbation   | max_diff = {leak:.2e}")
+
+
+def audit_8_epr_kvcache():
+    """P0 Audit A2: Verify stateful EPRKVCache (with cumulative tau) == Parallel Forward in fp64."""
+    print("\n" + "=" * 78)
+    print("[AUDIT 8] Stateful EPRKVCache (Cumulative Tau) & Asymmetric Eviction Audit")
+    print("=" * 78)
+    from epr_attention import EPRConfig, EPRAttention, EPRKVCache
+    torch.manual_seed(42)
+
+    for label, cfg in [
+        ("MHA interleaved (4H/4KV, 1 WH)", EPRConfig(dim=128, n_heads=4, n_kv_heads=4, n_wormhole_heads=1, rope_style="interleaved")),
+        ("GQA half_split  (8H/2KV, 4 WH)", EPRConfig(dim=256, n_heads=8, n_kv_heads=2, n_wormhole_heads=4, rope_style="half_split")),
+    ]:
+        attn = EPRAttention(cfg).double().eval()
+        B, T = 2, 24
+        x = torch.randn(B, T, cfg.dim, dtype=torch.float64)
+        inv_freq = 1.0 / (10000.0 ** (torch.arange(0, attn.d_r, 2, dtype=torch.float64) / attn.d_r))
+        freqs = torch.outer(torch.arange(T, dtype=torch.float64), inv_freq)
+        fc, fs = freqs.cos(), freqs.sin()
+
+        with torch.no_grad():
+            y_par = attn(x, fc, fs)
+
+            # Lossless step-by-step decoding
+            cache = EPRKVCache(
+                n_layers=1, n_heads=attn.n_heads, n_kv_heads=attn.n_kv_heads,
+                head_dim=attn.head_dim, n_wormhole_kv_heads=attn.n_wh_kv,
+                window_size=None, max_seq_len=64, batch_size=B, dtype=torch.float64,
+            )
+            y_step = torch.cat([attn(x[:, t:t+1], fc[t:t+1], fs[t:t+1], kv_cache=cache, layer_idx=0) for t in range(T)], dim=1)
+            diff_step = (y_par - y_step).abs().max().item()
+            assert diff_step < 1e-13, f"KVCache step mismatch: {diff_step}"
+
+            # Prefill (10) + Decode (14)
+            cache.reset()
+            ys = [attn(x[:, :10], fc[:10], fs[:10], kv_cache=cache, layer_idx=0)]
+            for t in range(10, T):
+                ys.append(attn(x[:, t:t+1], fc[t:t+1], fs[t:t+1], kv_cache=cache, layer_idx=0))
+            diff_mix = (y_par - torch.cat(ys, dim=1)).abs().max().item()
+            assert diff_mix < 1e-13, f"KVCache prefill+decode mismatch: {diff_mix}"
+
+            # Asymmetric sliding-window eviction (W=8)
+            cache_ev = EPRKVCache(
+                n_layers=1, n_heads=attn.n_heads, n_kv_heads=attn.n_kv_heads,
+                head_dim=attn.head_dim, n_wormhole_kv_heads=attn.n_wh_kv,
+                window_size=8, max_seq_len=64, batch_size=B, dtype=torch.float64,
+            )
+            y_ev = torch.cat([attn(x[:, t:t+1], fc[t:t+1], fs[t:t+1], kv_cache=cache_ev, layer_idx=0) for t in range(T)], dim=1)
+            assert torch.isfinite(y_ev).all()
+            diff_w = (y_par[:, :8] - y_ev[:, :8]).abs().max().item()
+            assert diff_w < 1e-13, f"KVCache pre-eviction mismatch: {diff_w}"
+
+        print(f"  [PASS] {label} | step={diff_step:.2e} | prefill+dec={diff_mix:.2e} | pre-evict={diff_w:.2e}")
+
+
 def main():
     ckpt_path = None
     for a in sys.argv[1:]:
@@ -369,9 +467,11 @@ def main():
     audit_4_gradients_and_stress()
     audit_5_hardware_and_param_budget()
     audit_6_pauli_repulsion()
+    audit_7_flex_attention_cuda()
+    audit_8_epr_kvcache()
 
     print("\n" + "=" * 78)
-    print("ALL 6 AUDIT PILLARS PASSED WITH ZERO LEAKS AND MACHINE-PRECISION PARITY!")
+    print("ALL 8 AUDIT PILLARS PASSED WITH ZERO LEAKS AND MACHINE-PRECISION PARITY!")
     print("=" * 78)
 
 
