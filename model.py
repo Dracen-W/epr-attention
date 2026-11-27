@@ -26,6 +26,41 @@ from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
+
+# Optional PyTorch FlexAttention (fused Triton FlashAttention-2 kernel on CUDA)
+try:
+    from torch.nn.attention.flex_attention import flex_attention as _raw_flex_attention, create_block_mask as _create_block_mask
+    _HAS_FLEX_ATTENTION = True
+    _COMPILED_FLEX_ATTN = None
+    _FLEX_BLOCK_MASK_CACHE = {}
+except Exception:
+    _HAS_FLEX_ATTENTION = False
+    _COMPILED_FLEX_ATTN = None
+    _FLEX_BLOCK_MASK_CACHE = {}
+
+
+def _get_compiled_flex_attention():
+    global _COMPILED_FLEX_ATTN
+    if _COMPILED_FLEX_ATTN is None and _HAS_FLEX_ATTENTION:
+        _COMPILED_FLEX_ATTN = torch.compile(_raw_flex_attention)
+    return _COMPILED_FLEX_ATTN
+
+
+def _get_flex_causal_block_mask(seqlen: int, use_vacuum: bool, device: torch.device):
+    key = (seqlen, use_vacuum, str(device))
+    if key not in _FLEX_BLOCK_MASK_CACHE:
+        if use_vacuum:
+            def _mask(b, h, q_idx, kv_idx):
+                return kv_idx <= q_idx + 1
+            kv_len = seqlen + 1
+        else:
+            def _mask(b, h, q_idx, kv_idx):
+                return kv_idx <= q_idx
+            kv_len = seqlen
+        _FLEX_BLOCK_MASK_CACHE[key] = _create_block_mask(
+            _mask, B=None, H=None, Q_LEN=seqlen, KV_LEN=kv_len, device=device
+        )
+    return _FLEX_BLOCK_MASK_CACHE[key]
 from torch import nn
 
 
@@ -70,6 +105,7 @@ class ModelArgs:
     use_grav_bridge: bool = True       # Spatial coordinate dressing z_tilde = z + gamma_z * Phi (active only if use_medium_field=True)
     use_mass_boost: bool = True        # Field-resonance mass feedback u_tilde = u + gamma_u * rho (active only if use_medium_field=True)
     use_event_horizon: bool = False    # QK-L2Norm bounded resonance cone tau_res * (q_hat . k_hat)
+    use_flex_attention: bool = True    # Auto-route CUDA long sequences (T>=256) to fused FlexAttention Triton kernel
 
 
 class RMSNorm(torch.nn.Module):
@@ -295,6 +331,7 @@ class UnifiedFiberGravityAttention(nn.Module):
         self.use_mass_boost = args.use_mass_boost and args.use_medium_field
         self.use_bilateral_mass = args.use_bilateral_mass
         self.use_event_horizon = args.use_event_horizon
+        self.use_flex_attention = getattr(args, 'use_flex_attention', True)
         self.use_base_rbf = args.use_base_rbf
         self.use_attn_vacuum = args.use_attn_vacuum
 
@@ -605,16 +642,44 @@ class UnifiedFiberGravityAttention(nn.Module):
         freqs_cos_r = freqs_cos[:, : self.d_r // 2]
         freqs_sin_r = freqs_sin[:, : self.d_r // 2]
 
-        q_aug, k_aug, v_aug, attn_mask, _, _ = self._compute_fields_and_qkv(x, freqs_cos_r, freqs_sin_r)
+        q_aug, k_aug, v_aug, attn_mask, dtau, _ = self._compute_fields_and_qkv(x, freqs_cos_r, freqs_sin_r)
 
-        # Single Fused D-Aligned SDPA (head_dim == D == 32/64, scale=1.0)
-        output = F.scaled_dot_product_attention(
-            q_aug, k_aug, v_aug,
-            attn_mask=attn_mask,
-            dropout_p=self.dropout if self.training else 0.0,
-            is_causal=False,
-            scale=1.0,
+        # Auto-route to fused Triton FlexAttention on CUDA for long sequences (O(T) memory, no O(T^2) mask!)
+        can_use_flex = (
+            self.use_flex_attention
+            and _HAS_FLEX_ATTENTION
+            and x.is_cuda
+            and seqlen >= 256
+            and x.dtype in (torch.bfloat16, torch.float16)
+            and (not self.training or self.dropout == 0.0)
         )
+        if can_use_flex:
+            tau = torch.cumsum(dtau.float(), dim=-1).contiguous()
+            tau_k = tau.clone()
+            block_mask = _get_flex_causal_block_mask(seqlen, self.use_attn_vacuum, x.device)
+            if self.use_attn_vacuum:
+                def epr_score_mod(score, b, h, q_idx, kv_idx):
+                    k_pos = torch.maximum(kv_idx - 1, torch.zeros_like(kv_idx))
+                    dt = tau[b, h, q_idx] - tau_k[b, h, k_pos]
+                    return torch.where(kv_idx == 0, score, score - dt)
+            else:
+                def epr_score_mod(score, b, h, q_idx, kv_idx):
+                    return score - (tau[b, h, q_idx] - tau_k[b, h, kv_idx])
+            output = _get_compiled_flex_attention()(
+                q_aug, k_aug, v_aug,
+                score_mod=epr_score_mod,
+                block_mask=block_mask,
+                scale=1.0,
+            )
+        else:
+            # Single Fused D-Aligned SDPA fallback (CPU / Apple MPS / float64 audit / short decode)
+            output = F.scaled_dot_product_attention(
+                q_aug, k_aug, v_aug,
+                attn_mask=attn_mask,
+                dropout_p=self.dropout if self.training else 0.0,
+                is_causal=False,
+                scale=1.0,
+            )
         output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
         output = self.wo(output)
         output = self.resid_dropout(output)
@@ -829,3 +894,91 @@ class Transformer(nn.Module):
                 v_pauli.scatter_add_(1, idx_next, torch.full((bsz, 1), pauli_alpha, device=idx.device))
 
         return idx
+
+
+# Canonical Short Name Alias (EPR = Euclidean-RBF, Proper-time & Resonance-fiber Attention)
+EPRAttention = UnifiedFiberGravityAttention
+
+
+class EPRKVCache:
+    """
+    Asymmetric Edge KV-Cache for EPR Attention:
+      - Damped Solar-System Heads (0 .. n_damped-1): fixed sliding window `window_size` (O(1) memory!)
+      - ER=EPR Wormhole Heads (n_damped .. n_heads-1): full-context retention for zero-decay distant recall
+    Achieves 75% - 87.5% long-context KV-cache memory reduction on 4-head / 8-head edge models.
+    """
+    def __init__(
+        self,
+        n_layers: int,
+        n_kv_heads: int,
+        head_dim: int,
+        n_wormhole_kv_heads: int = 1,
+        window_size: int = 128,
+        max_seq_len: int = 8192,
+        batch_size: int = 1,
+        dtype: torch.dtype = torch.bfloat16,
+        device: str = "cpu",
+    ):
+        self.n_layers = n_layers
+        self.n_kv_heads = n_kv_heads
+        self.n_wh = n_wormhole_kv_heads
+        self.n_damped = n_kv_heads - n_wormhole_kv_heads
+        self.head_dim = head_dim
+        self.window_size = window_size
+        self.max_seq_len = max_seq_len
+        self.pos = 0
+
+        # Damped heads: fixed O(1) ring buffer of length `window_size`
+        self.k_damped = [
+            torch.zeros(batch_size, self.n_damped, window_size, head_dim, dtype=dtype, device=device)
+            for _ in range(n_layers)
+        ]
+        self.v_damped = [
+            torch.zeros(batch_size, self.n_damped, window_size, head_dim, dtype=dtype, device=device)
+            for _ in range(n_layers)
+        ]
+        # Wormhole heads: full-context retention up to `max_seq_len`
+        self.k_wh = [
+            torch.zeros(batch_size, self.n_wh, max_seq_len, head_dim, dtype=dtype, device=device)
+            for _ in range(n_layers)
+        ]
+        self.v_wh = [
+            torch.zeros(batch_size, self.n_wh, max_seq_len, head_dim, dtype=dtype, device=device)
+            for _ in range(n_layers)
+        ]
+
+    def update(self, layer_idx: int, k_new: torch.Tensor, v_new: torch.Tensor):
+        """Append new KV tokens [B, H_kv, T_new, D] into asymmetric buffers."""
+        t_new = k_new.size(2)
+        k_d, k_w = k_new[:, : self.n_damped], k_new[:, self.n_damped :]
+        v_d, v_w = v_new[:, : self.n_damped], v_new[:, self.n_damped :]
+
+        # Update Wormhole full-context buffer
+        end = min(self.pos + t_new, self.max_seq_len)
+        self.k_wh[layer_idx][:, :, self.pos : end] = k_w[:, :, : end - self.pos]
+        self.v_wh[layer_idx][:, :, self.pos : end] = v_w[:, :, : end - self.pos]
+
+        # Update Damped sliding-window ring buffer
+        for offset in range(t_new):
+            slot = (self.pos + offset) % self.window_size
+            self.k_damped[layer_idx][:, :, slot : slot + 1] = k_d[:, :, offset : offset + 1]
+            self.v_damped[layer_idx][:, :, slot : slot + 1] = v_d[:, :, offset : offset + 1]
+
+        if layer_idx == self.n_layers - 1:
+            self.pos = end
+
+    def memory_bytes(self) -> int:
+        total = 0
+        for lst in (self.k_damped, self.v_damped, self.k_wh, self.v_wh):
+            for t in lst:
+                total += t.numel() * t.element_size()
+        return total
+
+    def standard_kv_bytes(self, seq_len: int) -> int:
+        elem = self.k_wh[0].element_size()
+        bsz = self.k_wh[0].size(0)
+        return 2 * self.n_layers * bsz * self.n_kv_heads * seq_len * self.head_dim * elem
+
+    def savings_ratio(self, seq_len: int) -> float:
+        std = self.standard_kv_bytes(seq_len)
+        return 1.0 - (self.memory_bytes() / max(1, std))
