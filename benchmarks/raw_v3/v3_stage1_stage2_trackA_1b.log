@@ -1,0 +1,128 @@
+=== [STAGE 0] Environment & Package Check ===
+GPU: NVIDIA L4 PyTorch: 2.14.1+cu130
+
+=== [STAGE 1] 9-Pillar CUDA/Triton Audit already PASSED (cached) ===
+
+=== [STAGE 2] Running 1.1B Triton PagedAttention & Sub-Quadratic Sparse BlockMask Benchmark ===
+GPU: NVIDIA L4
+========================================================================================
+[1] 1.1B GQA Asymmetric Triton PagedAttention Serving Benchmark (22L, 32Q/4KV, D=64)
+========================================================================================
+  Continuous Batch (B=16, lens 260..8192, avg=3944):
+    - Contiguous Static KV (max=8192) :  2816.00 MB
+    - Standard PagedAttention (4 KV)  :  1357.12 MB
+    - EPR Asymmetric Paged (W=128+WH) :   379.02 MB  (Saved 86.5% vs Contig | 72.1% vs Standard Paged!)
+
+  Fused `@triton.jit` `_epr_paged_decode_kernel` Scaling (B=8 concurrent requests, 32Q/4KV, W=128):
+   Context Len |  22L Kernel ms |   Attn Bandwidth tok/s |  Damped Pages/Seq |  WH Pages/Seq
+  --------------------------------------------------------------------------------------
+          1024 |       1.381 ms |              5,793 tok/s |                 8 |            64
+          2048 |       2.497 ms |              3,204 tok/s |                 8 |           128
+          4096 |       4.823 ms |              1,659 tok/s |                 8 |           256
+          8192 |       9.462 ms |                845 tok/s |                 8 |           512
+
+========================================================================================
+[2] Sub-Quadratic `FlexAttention` Asymmetric `BlockMask` Fwd+Bwd Speedup (1.1B GQA: 32Q/4KV, D=64)
+========================================================================================
+   Seq Len T |   Dense EPR Flex (tok/s) |   Block-Sparse EPR W=512 |  Sparse Speedup
+  ----------------------------------------------------------------------------------
+        1024 |            375,414 tok/s |            376,158 tok/s |          1.00x
+        2048 |            310,138 tok/s |            341,473 tok/s |          1.10x
+        4096 |            236,032 tok/s |            309,781 tok/s |          1.31x
+        8192 |            159,765 tok/s |            261,076 tok/s |          1.63x
+
+Saved -> industrial_systems_bench.json
+
+=== [STAGE 3] Running Full 1.1B Suite (Track A From-Scratch + Track B Pretrained Surgery & Standard Benchmarks) ===
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Streaming & tokenizing 22,000,000 FineWeb-Edu tokens with TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T...
+Saved 22,000,277 tokens -> /content/fineweb_1b_tokens.npy
+
+========================================================================================
+[TRACK A] 1.1B From-Scratch Pretraining Showdown on FineWeb-Edu (22L, dim=2048, 32Q/4KV)
+========================================================================================
+
+--- Training pure_llama_1b | params: 1,034,512,384 (1034.51M) ---
+num decayed parameter tensors: 155, with 1,034,420,224 parameters
+num non-decayed parameter tensors: 45, with 92,160 parameters
+using fused AdamW: True
+W1128 03:39:08.574000 9931 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+[pure_llama_1b] step    0 | val_loss=10.7795 | val_ppl=48028.30 | wall=  26.6s
+[pure_llama_1b] step   50 | val_loss=7.0572 | val_ppl=1161.15 | wall= 216.3s
+[pure_llama_1b] step  100 | val_loss=6.4093 | val_ppl= 607.46 | wall= 356.9s
+[pure_llama_1b] step  150 | val_loss=6.1070 | val_ppl= 448.97 | wall= 498.6s
+[pure_llama_1b] step  200 | val_loss=5.8974 | val_ppl= 364.09 | wall= 640.7s
+[pure_llama_1b] step  250 | val_loss=5.7847 | val_ppl= 325.29 | wall= 782.6s
+[pure_llama_1b] step  300 | val_loss=5.7279 | val_ppl= 307.32 | wall= 924.3s
+[pure_llama_1b DONE] median_step=2808.6ms (5,833 tok/s) | VRAM=10.90 GiB | Extrap={'0:1024': 287.34, '1024:2048': 315.58, '2048:4096': 358.08}
+
+--- Training epr_elastic_1b | params: 1,012,345,624 (1012.35M) ---
+num decayed parameter tensors: 133, with 1,012,252,672 parameters
+num non-decayed parameter tensors: 133, with 92,952 parameters
+using fused AdamW: True
+[epr_elastic_1b] step    0 | val_loss=10.7832 | val_ppl=48203.85 | wall=  22.2s
+[epr_elastic_1b] step   50 | val_loss=6.8773 | val_ppl= 970.00 | wall= 184.5s
+[epr_elastic_1b] step  100 | val_loss=6.2397 | val_ppl= 512.71 | wall= 329.9s
+[epr_elastic_1b] step  150 | val_loss=5.9224 | val_ppl= 373.29 | wall= 475.8s
+[epr_elastic_1b] step  200 | val_loss=5.6553 | val_ppl= 285.79 | wall= 621.8s
+[epr_elastic_1b] step  250 | val_loss=5.4926 | val_ppl= 242.89 | wall= 767.8s
+[epr_elastic_1b] step  300 | val_loss=5.4178 | val_ppl= 225.38 | wall= 913.7s
+[epr_elastic_1b DONE] median_step=2890.1ms (5,669 tok/s) | VRAM=11.03 GiB | Extrap={'0:1024': 205.04, '1024:2048': 227.27, '2048:4096': 236.07}
+Loading standard zero-shot benchmarks (ARC-Easy, HellaSwag, WinoGrande, BoolQ)...
+
+Generating train split:   0%|          | 0/2251 [00:00<?, ? examples/s]
+Generating train split: 100%|██████████| 2251/2251 [00:00<00:00, 131411.33 examples/s]
+
+Generating test split:   0%|          | 0/2376 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 2376/2376 [00:00<00:00, 402962.53 examples/s]
+
+Generating validation split:   0%|          | 0/570 [00:00<?, ? examples/s]
+Generating validation split: 100%|██████████| 570/570 [00:00<00:00, 184799.67 examples/s]
+
+Generating train split:   0%|          | 0/39905 [00:00<?, ? examples/s]
+Generating train split:  98%|█████████▊| 39000/39905 [00:00<00:00, 384544.34 examples/s]
+Generating train split: 100%|██████████| 39905/39905 [00:00<00:00, 386045.96 examples/s]
+
+Generating test split:   0%|          | 0/10003 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 10003/10003 [00:00<00:00, 342087.17 examples/s]
+
+Generating validation split:   0%|          | 0/10042 [00:00<?, ? examples/s]
+Generating validation split: 100%|██████████| 10042/10042 [00:00<00:00, 324118.51 examples/s]
+
+Generating train split:   0%|          | 0/40398 [00:00<?, ? examples/s]
+Generating train split: 100%|██████████| 40398/40398 [00:00<00:00, 1844301.30 examples/s]
+
+Generating test split:   0%|          | 0/1767 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 1767/1767 [00:00<00:00, 512257.06 examples/s]
+
+Generating validation split:   0%|          | 0/1267 [00:00<?, ? examples/s]
+Generating validation split: 100%|██████████| 1267/1267 [00:00<00:00, 413877.19 examples/s]
+
+Generating train split:   0%|          | 0/16113 [00:00<?, ? examples/s]
+Generating train split: 100%|██████████| 16113/16113 [00:00<00:00, 1161176.94 examples/s]
+
+Generating validation split:   0%|          | 0/1838 [00:00<?, ? examples/s]
+Generating validation split: 100%|██████████| 1838/1838 [00:00<00:00, 486626.10 examples/s]
+
+Generating test split:   0%|          | 0/3084 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 3084/3084 [00:00<00:00, 634142.25 examples/s]
+
+Generating train split:   0%|          | 0/9427 [00:00<?, ? examples/s]
+Generating train split: 100%|██████████| 9427/9427 [00:00<00:00, 426474.21 examples/s]
+
+Generating validation split:   0%|          | 0/3270 [00:00<?, ? examples/s]
+Generating validation split: 100%|██████████| 3270/3270 [00:00<00:00, 378982.43 examples/s]
+
+========================================================================================
+[TRACK B-0] Evaluating untouched pretrained anchor: TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+========================================================================================
+
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]
+Loading weights:  42%|████▏     | 85/201 [00:00<00:00, 836.32it/s]
+Loading weights:  86%|████████▌ | 172/201 [00:00<00:00, 855.26it/s]
+Loading weights: 100%|██████████| 201/201 [00:00<00:00, 880.24it/s]
+  [pretrained_1b_anchor] arc_easy     | acc=62.25% | acc_norm=57.50%
+  [pretrained_1b_anchor] hellaswag    | acc=39.00% | acc_norm=53.50%
+  [pretrained_1b_anchor] winogrande   | acc=55.25% | acc_norm=54.75%
+  [pretrained_1b_anchor] piqa         | acc=71.25% | acc_norm=73.00%
+  [pretrained_1b_anchor] boolq        | acc=57.00% | acc_norm=65.00%

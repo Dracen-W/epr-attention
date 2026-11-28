@@ -141,49 +141,58 @@ def load_standard_benchmarks(max_samples: int = 500) -> Dict[str, List[Tuple[str
     from datasets import load_dataset
     tasks = {}
 
-    print("Loading standard zero-shot benchmarks (ARC-Easy, HellaSwag, WinoGrande, PIQA)...", flush=True)
-    # 1. ARC-Easy (validation / test)
-    arc = load_dataset("allenai/ai2_arc", "ARC-Easy", split="test")
-    arc_items = []
-    for r in arc:
-        labels = r["choices"]["label"]
-        texts = [" " + t for t in r["choices"]["text"]]
-        if r["answerKey"] in labels:
-            gold = labels.index(r["answerKey"])
-            arc_items.append((f"Question: {r['question']}\nAnswer:", texts, gold))
-            if len(arc_items) >= max_samples:
-                break
-    tasks["arc_easy"] = arc_items
+    print("Loading standard zero-shot benchmarks (ARC-Easy, HellaSwag, WinoGrande, BoolQ)...", flush=True)
+    # 1. ARC-Easy (test)
+    try:
+        arc = load_dataset("allenai/ai2_arc", "ARC-Easy", split="test")
+        arc_items = []
+        for r in arc:
+            labels = r["choices"]["label"]
+            texts = [" " + t for t in r["choices"]["text"]]
+            if r["answerKey"] in labels:
+                gold = labels.index(r["answerKey"])
+                arc_items.append((f"Question: {r['question']}\nAnswer:", texts, gold))
+                if len(arc_items) >= max_samples:
+                    break
+        tasks["arc_easy"] = arc_items
+    except Exception as e:
+        print(f"Warning: ARC-Easy load failed: {e}", flush=True)
 
     # 2. HellaSwag (validation)
-    hs = load_dataset("Rowan/hellaswag", split="validation")
-    hs_items = []
-    for r in hs:
-        ctx = r["ctx"]
-        endings = [" " + e for e in r["endings"]]
-        hs_items.append((ctx, endings, int(r["label"])))
-        if len(hs_items) >= max_samples:
-            break
-    tasks["hellaswag"] = hs_items
+    try:
+        hs = load_dataset("Rowan/hellaswag", split="validation")
+        hs_items = []
+        for r in hs:
+            ctx = r["ctx"]
+            endings = [" " + e for e in r["endings"]]
+            hs_items.append((ctx, endings, int(r["label"])))
+            if len(hs_items) >= max_samples:
+                break
+        tasks["hellaswag"] = hs_items
+    except Exception as e:
+        print(f"Warning: HellaSwag load failed: {e}", flush=True)
 
-    # 3. WinoGrande (`winogrande_xl` validation: prefix up to `_`, choices = option + suffix!)
-    wg = load_dataset("allenai/winogrande", "winogrande_xl", split="validation")
-    wg_items = []
-    for r in wg:
-        sent = r["sentence"]
-        if "_" not in sent:
-            continue
-        pre, post = sent.split("_", 1)
-        ctx = pre.rstrip()
-        c1 = " " + r["option1"] + post
-        c2 = " " + r["option2"] + post
-        gold = int(r["answer"]) - 1
-        wg_items.append((ctx, [c1, c2], gold))
-        if len(wg_items) >= max_samples:
-            break
-    tasks["winogrande"] = wg_items
+    # 3. WinoGrande (`winogrande_xl` validation)
+    try:
+        wg = load_dataset("allenai/winogrande", "winogrande_xl", split="validation")
+        wg_items = []
+        for r in wg:
+            sent = r["sentence"]
+            if "_" not in sent:
+                continue
+            pre, post = sent.split("_", 1)
+            ctx = pre.rstrip()
+            c1 = " " + r["option1"] + post
+            c2 = " " + r["option2"] + post
+            gold = int(r["answer"]) - 1
+            wg_items.append((ctx, [c1, c2], gold))
+            if len(wg_items) >= max_samples:
+                break
+        tasks["winogrande"] = wg_items
+    except Exception as e:
+        print(f"Warning: WinoGrande load failed: {e}", flush=True)
 
-    # 4. LAMBADA / PIQA (try PIQA via parquet mirror `ybisk/piqa` or `baber/piqa`, fallback to LAMBADA)
+    # 4. PIQA (if parquet mirror available) + BoolQ (official Google Parquet)
     try:
         pq = load_dataset("baber/piqa", split="validation")
         pq_items = []
@@ -193,7 +202,9 @@ def load_standard_benchmarks(max_samples: int = 500) -> Dict[str, List[Tuple[str
                 break
         tasks["piqa"] = pq_items
     except Exception as e:
-        print(f"Note: PIQA mirror skipped ({e}); loading MMLU / BoolQ instead...", flush=True)
+        print(f"Note: PIQA mirror skipped ({e})", flush=True)
+
+    try:
         bq = load_dataset("google/boolq", split="validation")
         bq_items = []
         for r in bq:
@@ -203,6 +214,8 @@ def load_standard_benchmarks(max_samples: int = 500) -> Dict[str, List[Tuple[str
             if len(bq_items) >= max_samples:
                 break
         tasks["boolq"] = bq_items
+    except Exception as e:
+        print(f"Warning: BoolQ load failed: {e}", flush=True)
 
     return tasks
 
@@ -212,33 +225,14 @@ def eval_hf_extrapolation_and_passkey(model, tokenizer, val_tokens: np.ndarray, 
     """Evaluate `[0:1024]`, `[1024:2048]` (in-domain), and `[2048:4096]` (2x zero-shot extrapolation!) + 4K Passkey NIAH."""
     model.eval()
 
-    # Optional damped sliding-window mask on EPR adapter layers
-    orig_fwds = []
+    # Optional damped sliding-window BlockMask on EPR adapter layers (O(T*W) memory & compute!)
+    orig_windows = []
     if damped_window > 0 and hasattr(model.model.layers[0].self_attn, "epr"):
+        torch._dynamo.reset()
         for lyr in model.model.layers:
             a = lyr.self_attn.epr
-            orig_fwds.append((a, a.forward))
-            def make_ev(attn_mod, W):
-                def ev_fwd(x, fc, fs, kv_cache=None, layer_idx=0):
-                    B, T, _ = x.shape
-                    q_aug, k_vac, k_real, xv, _, tau = attn_mod._compute_step_tensors(x, fc, fs, tau_offset=None)
-                    k_aug = torch.cat([k_vac, k_real], dim=-2)
-                    v_aug = F.pad(xv, (0, 0, 1, 0), value=0.0)
-                    if attn_mod.n_rep > 1:
-                        k_aug = k_aug.repeat_interleave(attn_mod.n_rep, dim=1)
-                        v_aug = v_aug.repeat_interleave(attn_mod.n_rep, dim=1)
-                    dt = (tau.unsqueeze(-1) - tau.unsqueeze(-2)).clamp(min=0.0)
-                    qp = torch.arange(T, device=x.device).unsqueeze(1)
-                    kp = torch.arange(T, device=x.device).unsqueeze(0)
-                    cm = torch.where(kp <= qp, 0.0, float("-inf")).view(1, 1, T, T)
-                    ev = F.pad(((qp - kp) >= W).view(1, 1, T, T), (1, 0), value=False)
-                    mask = F.pad(-dt, (1, 0), value=0.0) + F.pad(cm, (1, 0), value=0.0)
-                    mask = mask.expand(1, attn_mod.n_heads, T, T + 1).clone()
-                    mask[:, : attn_mod.n_damped] = mask[:, : attn_mod.n_damped].masked_fill(ev, float("-inf"))
-                    out = F.scaled_dot_product_attention(q_aug, k_aug, v_aug, attn_mask=mask.to(q_aug.dtype), is_causal=False, scale=1.0)
-                    return attn_mod.wo(out.transpose(1, 2).contiguous().view(B, T, -1))
-                return ev_fwd
-            a.forward = make_ev(a, damped_window)
+            orig_windows.append((a, a.flex_damped_window))
+            a.flex_damped_window = damped_window
 
     # 1. Bucketed PPL up to L=4096 (TinyLlama trained at T=2048 -> [2048:4096] is 2x zero-shot extrapolation!)
     L_max = 4096
@@ -260,34 +254,38 @@ def eval_hf_extrapolation_and_passkey(model, tokenizer, val_tokens: np.ndarray, 
     ppl_buckets = {f"{b0}:{b1}": round(math.exp(min(20.0, float(np.mean(b_losses[(b0, b1)])))), 2) for b0, b1 in buckets}
 
     # 2. Natural Passkey Retrieval across `Dist = 1024, 2048, 3584` (80 trials each)
+    # Tokenize contiguous `full_txt` and slice exact suffix `target_ids` to avoid SentencePiece double-`▁` artifacts!
     filler_unit = "The grass is green. The sky is blue. The sun is yellow. Here we go back and again. "
     passkey_res = {}
     for dist_toks in [1024, 2048, 3584]:
         rng_p = np.random.RandomState(2026 + dist_toks)
         hits = 0
         trials = 80
+        f_ids = tokenizer.encode(filler_unit * ((dist_toks // 16) + 8), add_special_tokens=False)[:dist_toks]
+        filler_txt = tokenizer.decode(f_ids, skip_special_tokens=True)
         for _ in range(trials):
             code = str(rng_p.randint(10000, 99999))
             needle_txt = f"The secret passkey is {code}. Remember this number. "
-            cue_txt = "\nWhat is the secret passkey? The secret passkey is "
-            code_ids = tokenizer.encode(code, add_special_tokens=False)
-            n_ids = tokenizer.encode(needle_txt, add_special_tokens=True)
-            c_ids = tokenizer.encode(cue_txt, add_special_tokens=False)
-            f_ids = tokenizer.encode(filler_unit * ((dist_toks // 16) + 8), add_special_tokens=False)[:dist_toks]
+            prefix_txt = f"{needle_txt}{filler_txt}\nWhat is the secret passkey? The secret passkey is "
+            full_txt = prefix_txt + code
+            pref_ids = tokenizer.encode(prefix_txt, add_special_tokens=True)
+            full_ids = tokenizer.encode(full_txt, add_special_tokens=True)
+            common = 0
+            while common < min(len(pref_ids), len(full_ids)) and pref_ids[common] == full_ids[common]:
+                common += 1
+            target_ids = full_ids[common:]
 
-            prompt_ids = n_ids + f_ids + c_ids
-            full_ids = prompt_ids + code_ids
             inp = torch.tensor([full_ids[:-1]], dtype=torch.long, device=device)
             with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 out = model(inp)
                 logits = out.logits if hasattr(out, "logits") else out
-            pred_ids = logits[0, -len(code_ids) :, :].argmax(dim=-1).tolist()
-            if pred_ids == code_ids:
+            pred_ids = logits[0, -len(target_ids) :, :].argmax(dim=-1).tolist()
+            if pred_ids == target_ids:
                 hits += 1
         passkey_res[str(dist_toks)] = round(100.0 * hits / trials, 2)
 
-    for a, orig_f in orig_fwds:
-        a.forward = orig_f
+    for a, orig_w in orig_windows:
+        a.flex_damped_window = orig_w
 
     return ppl_buckets, passkey_res
 
@@ -313,6 +311,7 @@ def run_track_a_1b_from_scratch(tokens_arr: np.ndarray, results: dict, results_p
 
     track_a = {}
     for tag, use_epr in [("pure_llama_1b", False), ("epr_elastic_1b", True)]:
+        torch._dynamo.reset()
         torch.manual_seed(1337)
         np.random.seed(1337)
         margs = ModelArgs(
@@ -434,7 +433,10 @@ def run_track_b_pretrained_1b_benchmarks(model_id: str, tokenizer, tokens_arr: n
         print("\n" + "=" * 88)
         print(f"[TRACK B-0] Evaluating untouched pretrained anchor: {model_id}")
         print("=" * 88, flush=True)
-        m0 = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(device).eval()
+        try:
+            m0 = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.bfloat16).to(device).eval()
+        except TypeError:
+            m0 = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(device).eval()
         b0_scores = {}
         for t_name, items in tasks.items():
             acc, acc_norm = score_mc_dataset(m0, tokenizer, items, device=device)
@@ -446,10 +448,45 @@ def run_track_b_pretrained_1b_benchmarks(model_id: str, tokenizer, tokens_arr: n
             "benchmarks": b0_scores,
             "ppl_buckets_4k": ppl0,
             "passkey_4k": pk0,
+            "passkey_v2": True,
         }
         with open(results_path, "w") as f:
             json.dump(results, f, indent=2)
         del m0
+        gc.collect()
+        torch.cuda.empty_cache()
+    elif not results["pretrained_1b_anchor"].get("passkey_v2"):
+        print("Refreshing pretrained_1b_anchor Passkey NIAH (SentencePiece-aligned)...", flush=True)
+        try:
+            m0 = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.bfloat16).to(device).eval()
+        except TypeError:
+            m0 = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(device).eval()
+        _, pk0 = eval_hf_extrapolation_and_passkey(m0, tokenizer, tokens_arr, device=device, damped_window=0)
+        results["pretrained_1b_anchor"]["passkey_4k"] = pk0
+        results["pretrained_1b_anchor"]["passkey_v2"] = True
+        print(f"  [pretrained_1b_anchor] Passkey Full={pk0}", flush=True)
+        with open(results_path, "w") as f:
+            json.dump(results, f, indent=2)
+        del m0
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    if "base_1b_cpt" in results and not results["base_1b_cpt"].get("passkey_v2") and os.path.exists("/content/base_1b_cpt_bf16.pt"):
+        print("Refreshing base_1b_cpt Passkey NIAH from saved /content/base_1b_cpt_bf16.pt...", flush=True)
+        try:
+            mb = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.bfloat16).to(device)
+        except TypeError:
+            mb = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(device)
+        ckpt_b = torch.load("/content/base_1b_cpt_bf16.pt", map_location="cpu", weights_only=False)
+        mb.load_state_dict(ckpt_b["state_dict"])
+        mb.eval()
+        _, pkb = eval_hf_extrapolation_and_passkey(mb, tokenizer, tokens_arr, device=device, damped_window=0)
+        results["base_1b_cpt"]["passkey_4k"] = pkb
+        results["base_1b_cpt"]["passkey_v2"] = True
+        print(f"  [base_1b_cpt] Passkey Full={pkb}", flush=True)
+        with open(results_path, "w") as f:
+            json.dump(results, f, indent=2)
+        del mb, ckpt_b
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -462,7 +499,10 @@ def run_track_b_pretrained_1b_benchmarks(model_id: str, tokenizer, tokens_arr: n
         print(f"[TRACK B] Loading {model_id} for variant: {variant}")
         print("=" * 88, flush=True)
 
-        hf_m = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(device)
+        try:
+            hf_m = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.bfloat16).to(device)
+        except TypeError:
+            hf_m = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(device)
         hf_m.config.use_cache = False
 
         if variant == "epr_elastic_1b_cpt":
@@ -544,6 +584,7 @@ def run_track_b_pretrained_1b_benchmarks(model_id: str, tokenizer, tokens_arr: n
             "benchmarks": bench_scores,
             "ppl_buckets_4k": ppl_b,
             "passkey_4k": passkey_full,
+            "passkey_v2": True,
             "eviction_w256": evict_info,
         }
         with open(results_path, "w") as f:

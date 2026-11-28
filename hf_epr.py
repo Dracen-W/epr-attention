@@ -70,7 +70,10 @@ class EPRLlamaConfig(PretrainedConfig):
         **kwargs,
     ):
         if _HAS_TRANSFORMERS:
-            super().__init__(tie_word_embeddings=tie_word_embeddings, **kwargs)
+            # `Transformer` ties `tok_embeddings.weight = output.weight` directly; keep HF base class neutral
+            # across both transformers 4.x (list `_tied_weights_keys`) and 5.x (dict `_tied_weights_keys`).
+            kwargs.pop("tie_word_embeddings", None)
+            super().__init__(tie_word_embeddings=False, **kwargs)
         self.vocab_size = vocab_size
         self.dim = dim
         self.hidden_size = dim
@@ -132,7 +135,6 @@ class EPRLlamaConfig(PretrainedConfig):
 
 class EPRLlamaForCausalLM(PreTrainedModel):
     config_class = EPRLlamaConfig
-    _tied_weights_keys = ["backbone.output.weight", "backbone.tok_embeddings.weight"]
 
     def __init__(self, config: EPRLlamaConfig):
         if _HAS_TRANSFORMERS:
@@ -349,16 +351,14 @@ def upgrade_hf_llama_to_epr(
 
         # Gentle Step-0 initialization for scalar fields so pretrained capabilities survive immediately
         epr.w_phys.weight.data.normal_(mean=0.0, std=0.002)
-        if epr.b_u_emit is not None:
-            epr.b_u_emit.data.zero_()
-        if epr.v0 is not None:
+        if hasattr(epr, "v0") and epr.v0 is not None:
             epr.v0.data.fill_(damped_v0_init)
             if epr.n_wh_kv > 0:
                 epr.v0.data[-epr.n_wh_kv :] = wormhole_v0_init
-        if epr.dtau_bias is not None:
+        if hasattr(epr, "b_tau") and epr.b_tau is not None:
             # Softplus(-4.2) ≈ 0.015 per token -> gentle ~67-token e-folding horizon on slowest/fastest mix
             rates = torch.linspace(dtau_bias_init + 0.8, dtau_bias_init - 0.8, epr.n_damped, device=target_device, dtype=target_dtype)
-            epr.dtau_bias.data.copy_(rates)
+            epr.b_tau.data.copy_(rates)
 
         adapter = HFLlamaEPRAttentionAdapter(epr, layer_idx=layer_idx, orig_head_dim=head_dim, rope_theta=rope_theta)
         adapter.return_3_tuple = needs_3_tuple

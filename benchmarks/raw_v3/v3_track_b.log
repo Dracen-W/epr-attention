@@ -1,0 +1,139 @@
+=== [TRACK B RESUME] Environment & Package Check ===
+
+>>> RUN: python3 -c 'import torch; print("GPU:", torch.cuda.get_device_name(0), "PyTorch:", torch.__version__)'
+GPU: NVIDIA L4 PyTorch: 2.14.1+cu130
+
+>>> RUN: pip install -q datasets transformers accelerate sentencepiece triton
+
+=== [STAGE 3 TRACK B] Running Pretrained TinyLlama-1.1B Surgery, CPT, 5 Standard Benchmarks & Checkpoint Export ===
+
+>>> RUN: python3 -u eval_1b_industrial.py
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Streaming & tokenizing 22,000,000 FineWeb-Edu tokens with TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T...
+Saved 22,000,277 tokens -> /content/fineweb_1b_tokens.npy
+Skipping Track A (already completed)
+Loading standard zero-shot benchmarks (ARC-Easy, HellaSwag, WinoGrande, BoolQ)...
+Generating train split:   0%|          | 0/2251 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 2251/2251 [00:00<00:00, 244348.41 examples/s]
+Generating test split:   0%|          | 0/2376 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 2376/2376 [00:00<00:00, 362150.82 examples/s]
+Generating validation split:   0%|          | 0/570 [00:00<?, ? examples/s]Generating validation split: 100%|██████████| 570/570 [00:00<00:00, 164132.45 examples/s]
+Generating train split:   0%|          | 0/39905 [00:00<?, ? examples/s]Generating train split:  98%|█████████▊| 39000/39905 [00:00<00:00, 377347.45 examples/s]Generating train split: 100%|██████████| 39905/39905 [00:00<00:00, 378792.65 examples/s]
+Generating test split:   0%|          | 0/10003 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 10003/10003 [00:00<00:00, 325960.06 examples/s]
+Generating validation split:   0%|          | 0/10042 [00:00<?, ? examples/s]Generating validation split: 100%|██████████| 10042/10042 [00:00<00:00, 330831.89 examples/s]
+Generating train split:   0%|          | 0/40398 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 40398/40398 [00:00<00:00, 1784195.66 examples/s]
+Generating test split:   0%|          | 0/1767 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1767/1767 [00:00<00:00, 432374.73 examples/s]
+Generating validation split:   0%|          | 0/1267 [00:00<?, ? examples/s]Generating validation split: 100%|██████████| 1267/1267 [00:00<00:00, 358993.66 examples/s]
+Generating train split:   0%|          | 0/16113 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 16113/16113 [00:00<00:00, 1156091.90 examples/s]
+Generating validation split:   0%|          | 0/1838 [00:00<?, ? examples/s]Generating validation split: 100%|██████████| 1838/1838 [00:00<00:00, 471016.73 examples/s]
+Generating test split:   0%|          | 0/3084 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 3084/3084 [00:00<00:00, 716474.66 examples/s]
+Generating train split:   0%|          | 0/9427 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 9427/9427 [00:00<00:00, 414879.79 examples/s]
+Generating validation split:   0%|          | 0/3270 [00:00<?, ? examples/s]Generating validation split: 100%|██████████| 3270/3270 [00:00<00:00, 362217.72 examples/s]
+
+========================================================================================
+[TRACK B-0] Evaluating untouched pretrained anchor: TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+========================================================================================
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights:  42%|████▏     | 85/201 [00:00<00:00, 849.66it/s]Loading weights:  87%|████████▋ | 175/201 [00:00<00:00, 878.29it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 881.82it/s]
+  [pretrained_1b_anchor] arc_easy     | acc=62.25% | acc_norm=57.50%
+  [pretrained_1b_anchor] hellaswag    | acc=39.00% | acc_norm=53.50%
+  [pretrained_1b_anchor] winogrande   | acc=55.25% | acc_norm=54.75%
+  [pretrained_1b_anchor] piqa         | acc=71.25% | acc_norm=73.00%
+  [pretrained_1b_anchor] boolq        | acc=57.00% | acc_norm=65.00%
+
+========================================================================================
+[TRACK B] Loading TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T for variant: base_1b_cpt
+========================================================================================
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights:  43%|████▎     | 86/201 [00:00<00:00, 851.30it/s]Loading weights:  86%|████████▌ | 173/201 [00:00<00:00, 858.80it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 881.37it/s]
+Control TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T: 1,100,048,384 params
+[base_1b_cpt] CPT step   75/300 | train_loss=2.3766 (ppl=10.77) | elapsed=635.7s
+[base_1b_cpt] CPT step  150/300 | train_loss=2.1019 (ppl=8.18) | elapsed=1275.5s
+[base_1b_cpt] CPT step  225/300 | train_loss=2.0545 (ppl=7.80) | elapsed=1915.3s
+[base_1b_cpt] CPT step  300/300 | train_loss=2.0104 (ppl=7.47) | elapsed=2555.0s
+--> Running standard zero-shot LLM benchmarks on base_1b_cpt...
+  [base_1b_cpt] arc_easy     | acc=60.75% | acc_norm=58.50%
+  [base_1b_cpt] hellaswag    | acc=39.00% | acc_norm=52.75%
+  [base_1b_cpt] winogrande   | acc=59.50% | acc_norm=55.75%
+  [base_1b_cpt] piqa         | acc=71.50% | acc_norm=74.00%
+  [base_1b_cpt] boolq        | acc=61.25% | acc_norm=65.25%
+  [base_1b_cpt] Extrap PPL={'0:1024': 5.08, '1024:2048': 8.92, '2048:3072': 1760.35, '3072:4096': 13399.39} | Passkey Full={'1024': 0.0, '2048': 0.0, '3584': 0.0}
+--> Saving pure bfloat16 weights to /content/base_1b_cpt_bf16.pt...
+Saved /content/base_1b_cpt_bf16.pt (2.05 GiB)
+
+========================================================================================
+[TRACK B] Loading TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T for variant: epr_elastic_1b_cpt
+========================================================================================
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights:  41%|████      | 82/201 [00:00<00:00, 794.26it/s]Loading weights:  83%|████████▎ | 166/201 [00:00<00:00, 818.33it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 839.70it/s]
+Traceback (most recent call last):
+  File "/content/epr_v3/eval_1b_industrial.py", line 610, in <module>
+    main()
+    ~~~~^^
+  File "/content/epr_v3/eval_1b_industrial.py", line 605, in main
+    run_track_b_pretrained_1b_benchmarks(model_id, tok, tokens_arr, results, results_path, device="cuda")
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/epr_v3/eval_1b_industrial.py", line 489, in run_track_b_pretrained_1b_benchmarks
+    hf_m, orig_p, new_p = upgrade_hf_llama_to_epr(
+                          ~~~~~~~~~~~~~~~~~~~~~~~^
+        hf_m, use_elastic_rbf=True, use_wormhole=True, wormhole_v0_init=1.8, damped_v0_init=-3.5
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/usr/local/lib/python3.13/dist-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/content/epr_v3/hf_epr.py", line 354, in upgrade_hf_llama_to_epr
+    if epr.b_u_emit is not None:
+       ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.13/dist-packages/torch/nn/modules/module.py", line 1972, in __getattr__
+    raise AttributeError(
+        f"'{type(self).__name__}' object has no attribute '{name}'"
+    )
+AttributeError: 'EPRAttention' object has no attribute 'b_u_emit'
+Traceback (most recent call last):
+  File "/content/colab_v3_track_b_runner.py", line 22, in <module>
+    run("python3 -u eval_1b_industrial.py")
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/colab_v3_track_b_runner.py", line 14, in run
+    raise RuntimeError(f"Command failed ({rc}): {cmd}")
+RuntimeError: Command failed (1): python3 -u eval_1b_industrial.py
+=== [TRACK B RESUME] Environment & Package Check ===
+
+>>> RUN: python3 -c 'import torch; print("GPU:", torch.cuda.get_device_name(0), "PyTorch:", torch.__version__)'
+GPU: NVIDIA L4 PyTorch: 2.14.1+cu130
+
+>>> RUN: pip install -q datasets transformers accelerate sentencepiece triton
+
+=== [STAGE 3 TRACK B] Running Pretrained TinyLlama-1.1B Surgery, CPT, 5 Standard Benchmarks & Checkpoint Export ===
+
+>>> RUN: python3 -u eval_1b_industrial.py
+Loaded cached FineWeb-Edu tokens: 22,000,277 tokens from /content/fineweb_1b_tokens.npy
+Skipping Track A (already completed)
+Loading standard zero-shot benchmarks (ARC-Easy, HellaSwag, WinoGrande, BoolQ)...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Refreshing pretrained_1b_anchor Passkey NIAH (SentencePiece-aligned)...
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights:  39%|███▉      | 78/201 [00:00<00:00, 776.58it/s]Loading weights:  79%|███████▊  | 158/201 [00:00<00:00, 787.35it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 800.85it/s]
+  [pretrained_1b_anchor] Passkey Full={'1024': 100.0, '2048': 83.75, '3584': 0.0}
+Refreshing base_1b_cpt Passkey NIAH from saved /content/base_1b_cpt_bf16.pt...
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights:  41%|████      | 82/201 [00:00<00:00, 794.05it/s]Loading weights:  85%|████████▌ | 171/201 [00:00<00:00, 828.64it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 846.71it/s]
+  [base_1b_cpt] Passkey Full={'1024': 100.0, '2048': 12.5, '3584': 0.0}
+Skipping base_1b_cpt (already completed)
+
+========================================================================================
+[TRACK B] Loading TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T for variant: epr_elastic_1b_cpt
+========================================================================================
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights:  38%|███▊      | 76/201 [00:00<00:00, 685.09it/s]Loading weights:  87%|████████▋ | 175/201 [00:00<00:00, 834.36it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 844.97it/s]
+Upgraded TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T -> EPR Attention: 1,100,048,384 -> 1,077,881,624 params (-22,166,760)
+[epr_elastic_1b_cpt] CPT step   75/300 | train_loss=2.8696 (ppl=17.63) | elapsed=726.9s
+[epr_elastic_1b_cpt] CPT step  150/300 | train_loss=2.5171 (ppl=12.39) | elapsed=1439.6s
+[epr_elastic_1b_cpt] CPT step  225/300 | train_loss=2.3375 (ppl=10.36) | elapsed=2152.8s
+[epr_elastic_1b_cpt] CPT step  300/300 | train_loss=2.2599 (ppl=9.58) | elapsed=2865.6s
+--> Running standard zero-shot LLM benchmarks on epr_elastic_1b_cpt...
+  [epr_elastic_1b_cpt] arc_easy     | acc=57.75% | acc_norm=53.00%
+  [epr_elastic_1b_cpt] hellaswag    | acc=38.00% | acc_norm=47.00%
+  [epr_elastic_1b_cpt] winogrande   | acc=53.50% | acc_norm=52.25%
+  [epr_elastic_1b_cpt] piqa         | acc=69.75% | acc_norm=70.75%
+  [epr_elastic_1b_cpt] boolq        | acc=55.00% | acc_norm=61.25%
+  [epr_elastic_1b_cpt] Extrap PPL={'0:1024': 6.33, '1024:2048': 11.29, '2048:3072': 12.26, '3072:4096': 14.69} | Passkey Full={'1024': 0.0, '2048': 0.0, '3584': 0.0}
+  [epr_elastic_1b_cpt] Evicted W=256 (71.9% KV saved @4K) PPL={'0:1024': 6.4, '1024:2048': 11.4, '2048:3072': 12.36, '3072:4096': 14.71} | Passkey W=256={'1024': 0.0, '2048': 0.0, '3584': 0.0}
+--> Saving pure bfloat16 weights to /content/epr_elastic_1b_cpt_bf16.pt...
+Saved /content/epr_elastic_1b_cpt_bf16.pt (2.01 GiB)
+
+=== ALL 1.1B INDUSTRIAL BENCHMARKS COMPLETED ===
+
+=== ALL V3.0 TRACK B BENCHMARKS & CHECKPOINTS COMPLETED SUCCESSFULLY ===

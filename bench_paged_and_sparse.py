@@ -10,8 +10,13 @@ bench_paged_and_sparse.py — Industrial v3.0 GPU Benchmarks for EPR Attention:
        (`W_damped=512` + Full Wormhole) forward+backward training throughput across `T = 1024, 2048, 4096, 8192`!
 """
 
+import gc
 import json
+import os
 import time
+
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 import torch
 
 from epr_attention import EPRConfig, EPRAttention
@@ -114,52 +119,52 @@ def bench_paged_serving_1b(device: str = "cuda"):
 
 def bench_subquadratic_blockmask(device: str = "cuda"):
     print("\n" + "=" * 88)
-    print("[2] Sub-Quadratic `FlexAttention` Asymmetric `BlockMask` Training Speedup (32Q/4KV, D=64)")
+    print("[2] Sub-Quadratic `FlexAttention` Asymmetric `BlockMask` Fwd+Bwd Speedup (1.1B GQA: 32Q/4KV, D=64)")
     print("=" * 88)
     print(f"  {'Seq Len T':>10s} | {'Dense EPR Flex (tok/s)':>24s} | {'Block-Sparse EPR W=512':>24s} | {'Sparse Speedup':>15s}")
     print("  " + "-" * 82)
 
     rows = []
-    # Benchmark a 4-layer 1.1B-width (`dim=2048, 32Q/4KV, D=64`) attention stack across T = 1024 .. 8192
+    # Benchmark a 1.1B-geometry GQA EPRAttention layer (`dim=2048, 32Q/4KV, D=64`) across T = 1024 .. 8192 (fwd + bwd)
     for T in [1024, 2048, 4096, 8192]:
         B = max(1, 8192 // T)
         res_t = {"seq_len": T, "batch_size": B}
         for tag, win in [("dense", 0), ("sparse_w512", 512)]:
-            m = Transformer(ModelArgs(
-                dim=1024, n_layers=4, n_heads=16, n_kv_heads=4, vocab_size=4096,
-                max_seq_len=T, dropout=0.0, use_epr=True, use_elastic_rbf=True,
+            torch._dynamo.reset()
+            attn = EPRAttention(EPRConfig(
+                dim=2048, n_heads=32, n_kv_heads=4,
+                use_wormhole=True, use_elastic_rbf=True,
                 use_flex_attention=True, flex_damped_window=win,
             )).to(device=device, dtype=torch.bfloat16)
-            m_comp = torch.compile(m)
-            x = torch.randint(0, 4096, (B, T), device=device)
-            y = torch.randint(0, 4096, (B, T), device=device)
+            fc, fs = precompute_freqs_cis(attn.d_r, T)
+            fc, fs = fc.to(device), fs.to(device)
+            x = torch.randn(B, T, 2048, device=device, dtype=torch.bfloat16, requires_grad=True)
 
             for _ in range(4):
-                with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
-                    m_comp(x, y)
-                    loss = m.last_loss
-                loss.backward()
-                m.zero_grad(set_to_none=True)
+                out = attn(x, fc, fs)
+                out.sum().backward()
+                attn.zero_grad(set_to_none=True)
+                x.grad = None
             torch.cuda.synchronize()
 
-            iters = 12
+            iters = 20
             t0 = time.perf_counter()
             for _ in range(iters):
-                with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
-                    m_comp(x, y)
-                    loss = m.last_loss
-                loss.backward()
-                m.zero_grad(set_to_none=True)
+                out = attn(x, fc, fs)
+                out.sum().backward()
+                attn.zero_grad(set_to_none=True)
+                x.grad = None
             torch.cuda.synchronize()
             dt = time.perf_counter() - t0
             res_t[tag] = round((B * T * iters) / dt, 1)
-            del m_comp, m
+            del attn, x, out
+            gc.collect()
             torch.cuda.empty_cache()
 
         sp = res_t["sparse_w512"] / max(1e-6, res_t["dense"])
         res_t["speedup"] = round(sp, 2)
         rows.append(res_t)
-        print(f"  {T:10d} | {res_t['dense']:18,.0f} tok/s | {res_t['sparse_w512']:18,.0f} tok/s | {sp:13.2f}x")
+        print(f"  {T:10d} | {res_t['dense']:18,.0f} tok/s | {res_t['sparse_w512']:18,.0f} tok/s | {sp:13.2f}x", flush=True)
 
     return rows
 

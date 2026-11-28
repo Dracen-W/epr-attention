@@ -40,6 +40,12 @@ except Exception:
 def _get_compiled_flex_attention():
     global _COMPILED_FLEX_ATTN
     if _COMPILED_FLEX_ATTN is None and _HAS_FLEX_ATTENTION:
+        try:
+            import torch._dynamo
+            torch._dynamo.config.recompile_limit = max(getattr(torch._dynamo.config, "recompile_limit", 8), 64)
+            torch._dynamo.config.cache_size_limit = max(getattr(torch._dynamo.config, "cache_size_limit", 8), 64)
+        except Exception:
+            pass
         _COMPILED_FLEX_ATTN = torch.compile(_raw_flex_attention)
     return _COMPILED_FLEX_ATTN
 

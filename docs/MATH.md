@@ -111,4 +111,16 @@ which is **algebraically identical to prepending a dummy vacuum token (`2.78e-16
 ### 6.2 Asymmetric Sub-Quadratic `FlexAttention` `BlockMask` (`flex_damped_window > 0`)
 For long-context pretraining/prefill ($T \gg W$), setting `flex_damped_window = W` constructs a head-asymmetric `BlockMask` over $128 \times 128$ hardware tiles:
 - **Damped Heads ($h < H_{\text{damped}}$)**: evaluate only tiles intersecting $(j = 0) \lor (0 \le i - j < W)$, skipping all $O(T^2)$ distant tiles in both forward and backward passes.
-- **Wormhole Heads ($h \ge H_{\text{damped}}$)**: evaluate full causal tiles $j \le i$, preserving exact arbitrary-distance retrieval in $O\!\big(T \cdot (\frac{H_{\text{damped}}}{H} W + \frac{H_{\text{wh}}}{H} T)\big)$ total work.
+- **Wormhole Heads ($h \ge H_{\text{damped}}$)**: evaluate full causal tiles $j \le i$, preserving exact arbitrary-distance retrieval in $O\!\big(T \cdot (\frac{H_{\text{damped}}}{H} W + \frac{H_{\text{wh}}}{H} T)\big)$ total work (`1.63×` Fwd+Bwd speedup at `T=8192` on `1.1B GQA`).
+
+### 6.3 Closed-Form Matrix Parameter-Saving Law & Verification Scope
+Comparing a standard MHA/GQA layer ($W_Q \in \mathbb{R}^{(H \cdot D) \times C}$, $W_K, W_V \in \mathbb{R}^{(H_{\text{kv}} \cdot D) \times C}$, $W_O \in \mathbb{R}^{C \times (H \cdot D)}$) against EPR (`d_r + d_g + 2 = D`, $W_{\text{proj}} \in \mathbb{R}^{(H d_r + H_{\text{kv}} d_r + H_{\text{kv}} d_g + H_{\text{kv}} D) \times C}$, $W_{\text{phys}} \in \mathbb{R}^{(H_{\text{kv}} + H - H_{\text{wh}}) \times C}$, $W_O$ unchanged):
+
+$$\Delta P_{\text{matrix}} = L \cdot C \cdot \Big[\big(H d_r + H_{\text{kv}}(d_r + d_g) + H_{\text{kv}} + H - H_{\text{wh}}\big) - \big(H D + H_{\text{kv}} D\big)\Big]$$
+
+Substituting $d_r - D = -(d_g + 2)$ and $(d_r + d_g) - D = -2$ simplifies directly to:
+
+$$\Delta P_{\text{matrix}} = - L \cdot C \cdot \big[\, H(d_g + 1) + H_{\text{kv}} + H_{\text{wh}} \,\big] < 0$$
+
+- **Empirical Verification (`1.3M` → `1.1B`)**: Verified to the exact single integer across discrete tiers from `1.3M` (`-16,896`), `6.0M` (`-99,840`), `28M` (`-396,288`) up to `1.1B GQA` (`22L, C=2048, 32Q/4KV, H_wh=8, d_g=14` $\implies$ `-22,167,552` matrix parameters).
+- **Theoretical Scope (`> 1.1B`)**: Models beyond `1.1B` have not yet been empirically trained; however, as an exact algebraic identity of the projection tensor dimensions, $\Delta P_{\text{matrix}}$ holds strictly in theory for arbitrary larger scales.

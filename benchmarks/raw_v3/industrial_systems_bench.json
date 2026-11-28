@@ -1,0 +1,72 @@
+{
+  "gpu": "NVIDIA L4",
+  "paged_serving": {
+    "batch16_memory_mb": {
+      "contiguous_8k": 2816.0,
+      "standard_paged": 1357.12,
+      "epr_asymmetric_paged": 379.02,
+      "saved_vs_contiguous_pct": 86.5,
+      "saved_vs_standard_paged_pct": 72.1
+    },
+    "triton_decode_scaling": [
+      {
+        "context_len": 1024,
+        "kernel_22l_ms": 1.381,
+        "attn_tok_per_s": 5792.9,
+        "damped_pages_per_seq": 8,
+        "wh_pages_per_seq": 64
+      },
+      {
+        "context_len": 2048,
+        "kernel_22l_ms": 2.497,
+        "attn_tok_per_s": 3204.1,
+        "damped_pages_per_seq": 8,
+        "wh_pages_per_seq": 128
+      },
+      {
+        "context_len": 4096,
+        "kernel_22l_ms": 4.823,
+        "attn_tok_per_s": 1658.8,
+        "damped_pages_per_seq": 8,
+        "wh_pages_per_seq": 256
+      },
+      {
+        "context_len": 8192,
+        "kernel_22l_ms": 9.462,
+        "attn_tok_per_s": 845.5,
+        "damped_pages_per_seq": 8,
+        "wh_pages_per_seq": 512
+      }
+    ]
+  },
+  "sparse_blockmask": [
+    {
+      "seq_len": 1024,
+      "batch_size": 8,
+      "dense": 375414.2,
+      "sparse_w512": 376158.1,
+      "speedup": 1.0
+    },
+    {
+      "seq_len": 2048,
+      "batch_size": 4,
+      "dense": 310138.4,
+      "sparse_w512": 341473.0,
+      "speedup": 1.1
+    },
+    {
+      "seq_len": 4096,
+      "batch_size": 2,
+      "dense": 236032.0,
+      "sparse_w512": 309781.1,
+      "speedup": 1.31
+    },
+    {
+      "seq_len": 8192,
+      "batch_size": 1,
+      "dense": 159764.8,
+      "sparse_w512": 261075.5,
+      "speedup": 1.63
+    }
+  ]
+}
