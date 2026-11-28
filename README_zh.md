@@ -4,7 +4,7 @@
 
 **更省参数、更省 KV 显存、越界长文不崩的 Transformer 注意力替代方案**
 
-[English](README.md) | **简体中文** · [🤗 HF 1.08B 模型权重](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic) · [📐 数学细节](docs/MATH.md) · [🗂️ v3.0 原始数据](benchmarks/raw_v3/README.md) · [🏷️ v3.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/3.0) · [🗂️ v2.0 原始数据](benchmarks/raw_v2/README.md) · [🏷️ v2.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 归档](docs/BENCHMARKS_zh.md) · [🏷️ v1.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
+[English](README.md) | **简体中文** · [🤗 HF 1.08B 模型权重](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic) · [🏗️ 架构图解](docs/ARCHITECTURE.md) · [📐 数学细节](docs/MATH.md) · [🗂️ v3.0 原始数据](benchmarks/raw_v3/README.md) · [🏷️ v3.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/3.0) · [🗂️ v2.0 原始数据](benchmarks/raw_v2/README.md) · [🏷️ v2.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 归档](docs/BENCHMARKS_zh.md) · [🏷️ v1.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Hugging Face Weights](https://img.shields.io/badge/%F0%9F%A4%97%20Weights-TinyLlama--1.1B--EPR--Elastic-ffb000)](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic)
@@ -51,7 +51,9 @@
 
 ## 原理速览（大白话版）与省参公式
 
-不需要在标准注意力之外额外拼装 RNN 层，**EPR Attention**（[`epr_attention.py`](epr_attention.py)、[`epr_paged_attention.py`](epr_paged_attention.py)、[`hf_epr.py`](hf_epr.py)）直接在一个标准的 `head_dim`（`D = 32, 64, 128`）内积里完成了三件事（完整数学推导见 [`docs/MATH.md`](docs/MATH.md)）：
+![EPR Attention v3.0 架构与张量折叠示意图](docs/figures/epr_architecture_v3.png)
+
+不需要在标准注意力之外额外拼装 RNN 层，**EPR Attention**（[`epr_attention.py`](epr_attention.py)、[`epr_paged_attention.py`](epr_paged_attention.py)、[`hf_epr.py`](hf_epr.py)）直接在一个标准的 `head_dim`（`D = 32, 64, 128`）内积里完成了三件事（逐层张量尺寸图解见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，数学证明见 [`docs/MATH.md`](docs/MATH.md)）：
 
 1. **共享距离子空间（`d_r + d_g + 2 = D`）**：把每个注意力头拆成常规内积通道（`d_r`）、跨头共享的低维欧氏距离通道（`d_g`，带自适应宽度）以及 `2` 个范数/偏置槽——刚好凑齐 GPU 最喜欢的 `64 / 128` 维，`V` 通道零填充。
 2. **零值静默槽（Attention Sink）**：自带一个输出为零的可学习静默槽，遇到无关内容直接静默，不污染 `<BOS> token`；在 Triton 分页推理核里直接化为寄存器初值，零额外显存读取。

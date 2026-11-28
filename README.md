@@ -4,7 +4,7 @@
 
 **A Drop-In Transformer Attention Module That Uses Fewer Parameters, Less KV Memory, and Extrapolates Cleanly**
 
-**English** | [简体中文](README_zh.md) · [🤗 HF 1.08B Model](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic) · [📐 Math Details](docs/MATH.md) · [🗂️ Raw v3.0 Data](benchmarks/raw_v3/README.md) · [🏷️ v3.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/3.0) · [🗂️ Raw v2.0 Data](benchmarks/raw_v2/README.md) · [🏷️ v2.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 Archive](docs/BENCHMARKS.md) · [🏷️ v1.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
+**English** | [简体中文](README_zh.md) · [🤗 HF 1.08B Model](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic) · [🏗️ Architecture Guide](docs/ARCHITECTURE.md) · [📐 Math Details](docs/MATH.md) · [🗂️ Raw v3.0 Data](benchmarks/raw_v3/README.md) · [🏷️ v3.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/3.0) · [🗂️ Raw v2.0 Data](benchmarks/raw_v2/README.md) · [🏷️ v2.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 Archive](docs/BENCHMARKS.md) · [🏷️ v1.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Hugging Face Weights](https://img.shields.io/badge/%F0%9F%A4%97%20Weights-TinyLlama--1.1B--EPR--Elastic-ffb000)](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic)
@@ -51,7 +51,9 @@
 
 ## How It Works (Plain Overview) & Parameter-Saving Formula
 
-Instead of adding extra modules outside standard attention, **EPR Attention** ([`epr_attention.py`](epr_attention.py), [`epr_paged_attention.py`](epr_paged_attention.py), [`hf_epr.py`](hf_epr.py)) packs four simple mechanisms into a single standard `head_dim` (`D = 32, 64, 128`) dot product (full derivations in [`docs/MATH.md`](docs/MATH.md)):
+![EPR Attention v3.0 Architecture Schematic](docs/figures/epr_architecture_v3.png)
+
+Instead of adding extra modules outside standard attention, **EPR Attention** ([`epr_attention.py`](epr_attention.py), [`epr_paged_attention.py`](epr_paged_attention.py), [`hf_epr.py`](hf_epr.py)) packs everything into a single standard `head_dim` (`D = 32, 64, 128`) dot product (step-by-step tensor shapes in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); proofs in [`docs/MATH.md`](docs/MATH.md)):
 
 1. **Shared Distance Subspace (`d_r + d_g + 2 = D`)**: Splits each head into directional channels (`d_r`), a shared low-dimensional L2/RBF distance subspace (`d_g`, with key-adaptive width), and `2` norm/bias slots—fitting exact power-of-2 GPU Tensor Core dimensions with zero `V` padding.
 2. **Zero-Value Attention Sink**: Adds a learnable silent slot (zero output vector) so heads can stay quiet on irrelevant context—folded directly into Triton online-Softmax initial registers with zero extra memory reads.
