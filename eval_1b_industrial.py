@@ -1,24 +1,22 @@
 """
-eval_1b_industrial.py — 1.1B Scale Industrial Capability & Benchmark Suite (A100 / G4 GPU)
+eval_1b_industrial.py — 1.1B Scale Industrial Capability & Benchmark Suite (NVIDIA L4 / A100 GPU)
 
-Executes two rigorous apples-to-apples 1.1B experiments:
-  [Track A] 1.1B From-Scratch Pretraining Convergence & 4x Extrapolation (`FineWeb-Edu`):
-    - Pure Llama-1.1B (`dim=2048, 22L, 32Q/4KV GQA`, `1,100.05M` params)
-    - EPR-1.1B + Mass-Elastic RBF (`1,077.88M` params, `-22.17M` fewer matrix weights!)
-    Trained on identical `FineWeb-Edu` token streams (`T=1024`, 400 steps), comparing Same-Step &
-    Iso-Wallclock Val PPL, VRAM, throughput, and Zero-Shot Extrapolation (`[1024:2048]`, `[2048:4096]`).
+Executes two complementary 1.1B experimental tracks:
+  [Track A] 1.1B From-Scratch Equal-Budget Pretraining & 4x Extrapolation (`FineWeb-Edu`):
+    - Pure Llama-1.1B (`dim=2048, 22L, 32Q/4KV GQA`, `1,034.51M` tied params)
+    - EPR-1.1B + Mass-Elastic RBF (`1,012.35M` tied params, `-22,167,552` fewer matrix weights!)
+    Trained on identical `FineWeb-Edu` token streams (`T=1024`, `300` steps × `16,384` tok/step),
+    comparing Same-Step & Iso-Wallclock Val PPL, VRAM, throughput, and `[0:1K]/[1K:2K]/[2K:4K]` Extrap PPL.
 
-  [Track B] Pretrained `TinyLlama-1.1B` (`3T` tokens) Architectural Surgery + Standard LLM Benchmarks:
-    - Control: `TinyLlama-1.1B` (`1,100.05M` params) continued-pretrained on identical `FineWeb-Edu` `T=2048` batches.
-    - Ours: `TinyLlama-1.1B-EPR` (`1,077.88M` params, `-22.17M` via `upgrade_hf_llama_to_epr`) continued-pretrained
-      on the EXACT SAME `FineWeb-Edu` `T=2048` batches (`500` steps).
-    Evaluated side-by-side on standard zero-shot LLM benchmarks (`lm-eval` log-likelihood protocol):
-      1. `PIQA` (Physical Commonsense QA, Acc %)
-      2. `ARC-Easy` (Science Reasoning QA, Acc & Acc_norm %)
-      3. `HellaSwag` (Commonsense NLI, Acc_norm %, 500-val subset)
-      4. `WinoGrande` (Coreference Resolution, Acc %, 500-val subset)
-      5. `WikiText-2` (`[0:2048]` In-Domain PPL & `[2048:4096]` 2x Zero-Shot Extrapolation PPL!)
-      6. `4K Passkey Needle-in-a-Haystack` (`Dist = 1024, 2048, 3584` — Full vs `W=256` Paged KV Eviction!)
+  [Track B] Pretrained `TinyLlama-1.1B-3T` Architectural Surgery + Downstream Benchmarks:
+    - Anchor: Untouched `TinyLlama-1.1B-intermediate-step-1431k-3T` (`1,100.05M` untied params).
+    - Control (`base_1b_cpt`): Intact `TinyLlama-1.1B` (`0` weights cut) continued-pretrained on `FineWeb-Edu` (`T=2048`, `300` steps).
+    - Surgery (`epr_elastic_1b_cpt`): In-place `upgrade_hf_llama_to_epr` (`1,077.88M` params, `-22,166,760` net)
+      continued-pretrained on the EXACT SAME `FineWeb-Edu` `T=2048` batches (`300` steps = `9.83M` tokens).
+    Evaluated side-by-side (`lm-eval` conditional log-likelihood protocol, `400` validation samples/task):
+      1. `ARC-Easy`, `HellaSwag`, `WinoGrande`, `PIQA`, `BoolQ` (Acc & Acc_norm %)
+      2. `FineWeb-Edu` Held-Out Validation PPL across `[0:1024]`, `[1024:2048]`, `[2048:3072]`, `[3072:4096]`
+      3. `4K Passkey Retrieval` (`Dist = 1024, 2048, 3584`) — Full Context vs `W=256` Evicted (`-71.9%` KV)
 """
 
 import copy
