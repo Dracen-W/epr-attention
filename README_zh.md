@@ -1,27 +1,27 @@
 <div align="center">
 
-# EPR Attention（欧氏 RBF · 固有时间 · 共振纤维注意力机制）
+# EPR Attention
 
-**几何折叠省参 · 原生层内双态长上下文 · 工业级 Triton PagedAttention 注意力架构**
+**更省参数、更省 KV 显存、越界长文不崩的 Transformer 注意力替代方案**
 
-[English](README.md) | **简体中文** · [📐 数学推导与精确折叠](docs/MATH.md) · [🗂️ v3.0 (1.1B) 原始实测数据](benchmarks/raw_v3/README.md) · [🗂️ v2.0 (6M) 原始实测数据](benchmarks/raw_v2/README.md) · [🏷️ v2.0 存档 Tag](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 旧版归档](docs/BENCHMARKS_zh.md) · [🏷️ v1.0 存档 Tag](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
+[English](README.md) | **简体中文** · [🤗 HF 1.08B 模型权重](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic) · [📐 数学细节](docs/MATH.md) · [🗂️ v3.0 原始数据](benchmarks/raw_v3/README.md) · [🏷️ v3.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/3.0) · [🗂️ v2.0 原始数据](benchmarks/raw_v2/README.md) · [🏷️ v2.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 归档](docs/BENCHMARKS_zh.md) · [🏷️ v1.0 存档](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
+[![Hugging Face Weights](https://img.shields.io/badge/%F0%9F%A4%97%20Weights-TinyLlama--1.1B--EPR--Elastic-ffb000)](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic)
 [![9-Pillar Audit](https://img.shields.io/badge/9--Pillar%20Audit-0.00e+00%20Leak-brightgreen)](audit_all.py)
-[![Scale Verified: 1.3M to 1.1B](https://img.shields.io/badge/实测验证规模-1.3M%20%E2%86%92%201.1B%20GQA-0284c7)](benchmarks/raw_v3/README.md)
+[![Release: v3.0](https://img.shields.io/badge/Release-v3.0%20(1.3M%20%E2%86%92%201.1B)-0284c7)](https://github.com/Dracen-W/epr-attention/releases/tag/3.0)
 
 </div>
 
----
+> 💡 **先自黑一句**：代码里有些变量名（比如 `wormhole` 虫洞、`proper_time` 固有时间、`vacuum` 真空）纯属作者早期在草稿纸上瞎起的中二代号，千万别当真——底下没有任何物理玄学，全是老老实实的距离加权、自适应遗忘和分页缓存回收。
 
-## 为什么选择 EPR Attention？—— 五大核心亮点
+## 核心亮点
 
-1. **同起跑线更少参数、更高样本效率（Track A 公平从零训练）**：在严格相同的层宽、流式数据（`FineWeb-Edu`）与 `token` 预算下，**`1.1B` 级 EPR 少用 `-2,217 万` 参数，验证困惑度反而比标准 `Llama-1.1B` 降低 `-26.7%`（`225.38` vs `307.32`）**，单步训练达原生 `FlashAttention-2` **`97.2%`** 吞吐，提前 `33.3%` 训练量与 `32.7%` 挂钟时间达到 `FA2` 终点水平（`6.0M` 三随机种子同起跑线测试同样比 `Llama 2` 低 `-20.7%`、比 `ICLR'25 FoX` 低 `-15.1%`）。
-2. **硬件 $2^k$ 对齐的代数折叠与结构性净省参数**：通过 `d_r + d_g + 2 == head_dim` 免平移双槽恒等式（`V` 通道零填充，贴合 Tensor Core），将语义纤维共振、异方差欧氏捕获盆地与零值真空槽合入单次标准内积，按精确闭式公式削减约 `20%` 的 `Q/K` 寻址参数（*已在 `1.3M → 1.1B` 分档实测验证，更大规模属理论严格成立*）。
-3. **工业级 `@triton.jit` PagedAttention 再省 `-72.1%` 物理 KV 显存**：层内阻尼头对滑窗外物理页执行 $O(1)$ 自动回收，NoPE 虫洞头保留全局记忆——在 `1.1B GQA` 连续批处理（`B=16`, 变长至 `8K`）下物理 KV 显存池从标准 PagedAttention 的 `1,357.1 MB` 降至 **`379.0 MB`**（比静态缓存 `2,816.0 MB` 省 `-86.5%`），且真空槽直接折叠进在线 Softmax 寄存器实现零显存读取（`bf16` 核误差 `0.00e+00`）。
-4. **`8K` 亚平方训练提速 `1.63×` + 稳健零样本长文外推**：非对称 `FlexAttention BlockMask` 在阻尼头上硬件级跳过远距 `128×128` 块，**`8K` 前反向吞吐提速 `1.63×`**；越界 `2×–4×` 零样本外推有效抑制标准 RoPE 的周期崩溃（从零 `1.1B` `4×` 外推低 `-34.1%`；现成 `TinyLlama` 手术改造后 `[3072:4096]` PPL 从崩溃的 `13,399.39` 降至 **`14.69`**，驱逐 `71.9%` KV 后仍为 **`14.71`**）。
-5. **存量开源大模型低成本热移植路径（Track B 术后快速愈合）**：无需重训 `3T tokens`，[`upgrade_hf_llama_to_epr()`](hf_epr.py) 支持对现成 HuggingFace `Llama` 权重原地做保频减参手术（切除 `-22.17M` 参数），单张 L4 仅续训 **47 分钟（`9.83M tokens`，相当于原预训练量的 `0.00033%`、零蒸馏）** 即可恢复 **`93.9%`** 的 5 大零样本榜单能力，同时获得 `4K` 平滑外推与 `-72%` KV 显存压缩。
+- **参数更少、学得更快**：`1.1B` 规模同数据从零训练，参数少 **`2,217 万`**（省掉约 `20%` 注意力寻址权重），验证困惑度反而比标准 `Llama-1.1B` 低 **`26.7%`**（`225.38` vs `307.32`），训练速度达原生 `FlashAttention-2` 的 **`97.2%`**。
+- **推理 KV 显存砍掉七成**：自带 `@triton.jit` 分页解码内核，自动回收局部头的过期缓存页、仅在少数全局头保留完整历史——`1.1B` 并发服务下比标准 `PagedAttention` 再省 **`72.1%` 物理显存**（`1,357 MB → 379 MB`）。
+- **长文训练提速、越界不崩**：靠 `FlexAttention` 稀疏跳块使 `8K` 训练提速 **`1.63×`**；超出训练长度 2～4 倍依然平滑生成，告别标准 `RoPE` 的乱码崩溃。
+- **现成开源模型 47 分钟改造**：无需重头训几万亿 `tokens`，拿现成 `TinyLlama-1.1B` 原地裁参改造（权重托管于 [`DracenW/TinyLlama-1.1B-EPR-Elastic`](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic)），单张 L4 热身 47 分钟即可保住 **`93.9%`** 的 5 大榜单能力，并将 `4K` 外推困惑度从崩溃的 `13,399` 压到 **`14.69`**。
+- **标准头维度、自带防作弊体检**：直接塞进标准 `64 / 128` 硬件头维度（零填充、不改外围层），自带 [`audit_all.py`](audit_all.py) 一键校验因果零泄漏（`0.00e+00`）。
 
 ---
 
@@ -49,30 +49,29 @@
 
 ---
 
-## 核心架构与精确闭式省参公式
+## 原理速览（大白话版）与省参公式
 
-**EPR Attention**（[`epr_attention.py`](epr_attention.py)、[`epr_paged_attention.py`](epr_paged_attention.py)、[`hf_epr.py`](hf_epr.py)）将三大几何原语与**质量弹性异方差 RBF** 无损折叠进 `d_r + d_g + 2 == head_dim` 的单次标准内积核中：
+不需要在标准注意力之外额外拼装 RNN 层，**EPR Attention**（[`epr_attention.py`](epr_attention.py)、[`epr_paged_attention.py`](epr_paged_attention.py)、[`hf_epr.py`](hf_epr.py)）直接在一个标准的 `head_dim`（`D = 32, 64, 128`）内积里完成了三件事（完整数学推导见 [`docs/MATH.md`](docs/MATH.md)）：
 
-1. **免平移双槽代数折叠（`d_r + d_g + 2 == D`）**：将定向语义纤维共振（$q_{\text{res},i} \cdot k_{\text{res},j} / \sqrt{d_r}$）与跨头共享的低维欧氏 RBF 捕获势（$-\frac{\gamma_{h,j}}{2}\|z_i - z_j\|_2^2$）直接打包进 $2^k$ 对齐维度（`D=32 → 24+6+2`；`D=64 → 48+14+2`；`D=128 → 96+30+2`），无需 Softmax 平移抵消。
-2. **零值可学习真空槽（$e^{v_{0,h}}, V_{\text{vac}} = \mathbf{0}_D$）**：允许注意力头在无关或无答案上下文上静默，避免拿 `<BOS> token` 充当隐式垃圾桶引发高范数方差污染；在 `@triton.jit` PagedAttention 中可直接化简为片上在线 Softmax 寄存器初值（`m_i = v0, l_i = 1.0, acc = 0`），实现**零显存读取、零额外页表项**。
-3. **层内单核双态头拓扑**：在**每一层内部**，$H - H_{\text{wh}}$ 个**阻尼头**采用 RoPE + 内容驱动固有时间衰减（$\tau_i - \tau_j \ge 0$），负责局部建模、平滑外推、`BlockMask` 跳块与 $O(1)$ 物理页回收；$H_{\text{wh}}$ 个**虫洞头**采用 **NoPE + 零时间衰减（$\delta\tau \equiv 0$）+ 高真空门控**，负责全局检索。
-4. **质量弹性异方差 RBF（`--use_elastic_rbf=True`，默认推荐）**：利用键势 $u_{h,j}$ 动态伸缩每个 `token` 的捕获方差 $\gamma_{h,j} = \gamma_{0,h} / (1 + \alpha_h \sigma(u_{h,j}))$，高显著锚点 `token` 自动撑大捕获盆地，且直接塞进同一双槽核（`1.1B` 实测达 `FlashAttention-2` **`97.2%`** 单步速度）。
+1. **共享距离子空间（`d_r + d_g + 2 = D`）**：把每个注意力头拆成常规内积通道（`d_r`）、跨头共享的低维欧氏距离通道（`d_g`，带自适应宽度）以及 `2` 个范数/偏置槽——刚好凑齐 GPU 最喜欢的 `64 / 128` 维，`V` 通道零填充。
+2. **零值静默槽（Attention Sink）**：自带一个输出为零的可学习静默槽，遇到无关内容直接静默，不污染 `<BOS> token`；在 Triton 分页推理核里直接化为寄存器初值，零额外显存读取。
+3. **层内“多数局部衰减头 + 少数全局头”分工**：每层大部分头加 `RoPE` 与自适应衰减（负责平滑外推、`BlockMask` 跳块与 $O(1)$ 过期缓存页回收），同时留出一组无位置编码（`NoPE`）、零衰减的全局头保留长距离检索能力。
 
-### 精确闭式矩阵省参公式
-由于 Query 直接复用对称欧氏基底坐标 $z \in \mathbb{R}^{d_g}$（省去 $H \cdot d_g$ 列线性投影），且末尾 `+2` 代数折叠槽位无需投影矩阵权重（省去 $2(H + H_{\text{kv}})$ 列投影），EPR 相比同维度标准 MHA/GQA 严格净省矩阵参数：
+### 精确矩阵省参公式
+因为 Query 直接复用了共享距离坐标，且末尾 `+2` 个槽位不需要线性投影权重，EPR 相比同维度标准 MHA/GQA 严格净省 `Q/K` 矩阵参数：
 
 $$\Delta P_{\text{matrix}} = - L \cdot C \cdot \big[\, H(d_g + 1) + H_{\text{kv}} + H_{\text{wh}} \,\big]$$
 
-其中 $L$ 为层数，$C$ 为隐藏维，$H$ 为 Query 头数，$H_{\text{kv}}$ 为 KV 头数，$H_{\text{wh}}$ 为虫洞 Query 头数，$d_g$ 为共享基底维数（`D=32` 取 `6`，`D=64` 取 `14`，`D=128` 取 `30`）。
+*（其中 $L$ 为层数，$C$ 为隐藏维，$H$ 为 Query 头数，$H_{\text{kv}}$ 为 KV 头数，$H_{\text{wh}}$ 为全局 `NoPE` Query 头数，$d_g$ 为共享距离维：`D=32` 取 `6`，`D=64` 取 `14`，`D=128` 取 `30`。）*
 
 > [!IMPORTANT]
 > **验证边界声明（`1.3M → 1.1B` 离散分档实测 vs. `> 1.1B` 理论严格成立）：**
-> - **已实测验证区间（`1.3M` → `1.1B`）**：目前该公式**仅在 `Million` 级至 `1.1B` 级的离散模型档位上完成了真机实测校验**，各档位实测值与公式预测值逐位精确吻合：**`1.3M` MHA**（`-16,896` 矩阵参数）、**`6.0M` MHA**（`-99,840`）、**`28M` MHA**（`-396,288`）以及 **`1.1B` GQA**（`22L, C=2048, 32Q/4KV, H_wh=8, d_g=14` $\implies$ **`-22,167,552`** 矩阵参数；Track A 实测 `1,012,252,672 - 1,034,420,224 = -22,167,552`，Track B 手术算上 `+792` 个 1D 标量净差 `-22,166,760`）。
-> - **更大规模说明（`> 1.1B` 属理论严格成立）**：`1.1B` 以上的更大规模（如 `7B`、`70B`）**尚未进行实际训练与评测**；但由于上式完全由线性投影张量的输入输出维数代数恒等决定，**省参公式本身在理论上对任意更大规模继续严格成立**。
+> - **已实测验证区间（`1.3M` → `1.1B`）**：该公式目前**仅在 `Million` 级至 `1.1B` 级的离散模型档位上做过真机实测校验**，各档实测值与公式逐位一致：**`1.3M` MHA**（`-16,896`）、**`6.0M` MHA**（`-99,840`）、**`28M` MHA**（`-396,288`）及 **`1.1B` GQA**（`22L, C=2048, 32Q/4KV` $\implies$ **`-22,167,552`** 矩阵参数；计入 `+792` 个 1D 标量净减 `-22,166,760`）。
+> - **更大规模说明（`> 1.1B` 属理论严格成立）**：`1.1B` 以上规模（如 `7B+`）**尚未实际训练测试**；但因上式直接由线性层张量形状决定，**省参关系本身在理论上对更大规模依然严格成立**。
 
-> **归属与物理启发声明：** 基于 Andrej Karpathy 的 [`llama2.c`](https://github.com/karpathy/llama2.c)（MIT）与 Meta Llama 2 构建（阶段存档：[`v2.0` Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [`v1.0` Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)；原仓库遗留 C 导出脚本 `export.py / run.c` 暂不支持 EPR）。文中“固有时间”、“真空槽”、“虫洞头”等概念源于物理与神经耗散直觉启发（**inspired by**），数学本质均为标准可微 PyTorch / Triton 算子（详见 [`docs/MATH.md`](docs/MATH.md)）。
+> **开源归属：** 基于 Andrej Karpathy 的 [`llama2.c`](https://github.com/karpathy/llama2.c)（MIT）与 Meta Llama 2 构建（阶段存档：[`v2.0` Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [`v1.0` Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)；原仓库遗留 C 导出脚本 `export.py / run.c` 暂不支持 EPR）。
 
-**本节小结（架构与省参规律）**：通过 `d_r + d_g + 2 == D` 双槽代数折叠，EPR 在不破坏 GPU Tensor Core $2^k$ 头维对齐的前提下，实现了约 `20%` 的 `Q/K` 路由参数缩减。该省参规律已在 `1.3M` 至 `1.1B` 四个离散量级上得到逐位实证，但 `7B` 及以上规模的实际收敛与下游特性仍有待多卡算力进一步检验。
+**本节小结**：把共享距离打分和静默槽塞进 `d_r + d_g + 2 = D`，既保住了标准硬件头维度，又顺带省下约 `20%` 的 `Q/K` 投影参数。目前实证覆盖 `1.3M` 至 `1.1B` 量级，`7B+` 规模的实际训练表现留待多卡算力验证。
 
 ---
 

@@ -1,27 +1,27 @@
 <div align="center">
 
-# EPR Attention (Euclidean-RBF, Proper-Time & Resonance-Fiber)
+# EPR Attention
 
-**A Geometry-Folded, Parameter-Saving Long-Context Attention Architecture with Industrial Triton PagedAttention**
+**A Drop-In Transformer Attention Module That Uses Fewer Parameters, Less KV Memory, and Extrapolates Cleanly**
 
-**English** | [简体中文](README_zh.md) · [📐 Math & Exact Folding](docs/MATH.md) · [🗂️ Raw v3.0 (1.1B) Telemetry](benchmarks/raw_v3/README.md) · [🗂️ Raw v2.0 (6M) Telemetry](benchmarks/raw_v2/README.md) · [🏷️ v2.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 Legacy Archive](docs/BENCHMARKS.md) · [🏷️ v1.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
+**English** | [简体中文](README_zh.md) · [🤗 HF 1.08B Model](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic) · [📐 Math Details](docs/MATH.md) · [🗂️ Raw v3.0 Data](benchmarks/raw_v3/README.md) · [🏷️ v3.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/3.0) · [🗂️ Raw v2.0 Data](benchmarks/raw_v2/README.md) · [🏷️ v2.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 Archive](docs/BENCHMARKS.md) · [🏷️ v1.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
+[![Hugging Face Weights](https://img.shields.io/badge/%F0%9F%A4%97%20Weights-TinyLlama--1.1B--EPR--Elastic-ffb000)](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic)
 [![9-Pillar Audit](https://img.shields.io/badge/9--Pillar%20Audit-0.00e+00%20Leak-brightgreen)](audit_all.py)
-[![Scale Verified: 1.3M to 1.1B](https://img.shields.io/badge/Verified%20Scale-1.3M%20%E2%86%92%201.1B%20GQA-0284c7)](benchmarks/raw_v3/README.md)
+[![Release: v3.0](https://img.shields.io/badge/Release-v3.0%20(1.3M%20%E2%86%92%201.1B)-0284c7)](https://github.com/Dracen-W/epr-attention/releases/tag/3.0)
 
 </div>
 
----
+> 💡 **Quick naming confession**: Some variable names in the code (`wormhole`, `proper_time`, `vacuum`) are leftover 2 AM whiteboard nicknames—please don't take them literally. Zero physics mysticism inside; under the hood it is just distance-weighted attention, learned decay, an attention sink, and KV-page recycling.
 
-## Why EPR Attention? — Core Design Highlights
+## Core Highlights
 
-1. **Stronger Sample Efficiency with Fewer Parameters (Equal-Budget From-Scratch)**: Under identical depth/width, data stream (`FineWeb-Edu`), and token budget at **`1.1B` scale** (**Track A**), EPR uses **`-22.17M` fewer parameters** while achieving **`-26.7%` lower validation perplexity (`225.38` vs. `307.32`)** and running at **`97.2%` of native FlashAttention-2 step speed** (`6.0M` 3-seed training likewise lowers perplexity by **`-20.7%`** vs. `Llama 2` and **`-15.1%`** vs. ICLR'25 `FoX`).
-2. **Hardware-Aligned `d_r + d_g + 2 == D` Folding & Closed-Form Parameter Reduction**: Folds directional fiber resonance, shared heteroscedastic Euclidean-RBF capture basins, and a zero-value vacuum floor into one power-of-2 head dimension (`D = 32, 64, 128`, **zero `V` padding**), reducing `Q/K` projection weights by an exact closed-form law (*empirically verified from `1.3M` to `1.1B`; holds in theory at larger scales*).
-3. **Industrial `@triton.jit` PagedAttention Saving `-72.1%` Physical KV Memory**: Intra-layer damped heads recycle expired physical KV pages in $O(1)$ while NoPE Wormhole heads retain global context—reducing `1.1B GQA` continuous-batching KV pools (`B=16`, up to `8K`) from `1,357.1 MB` (Standard PagedAttention) to **`379.0 MB`** (`-86.5%` vs. static `2,816.0 MB`) with zero-read online-Softmax vacuum folding (`0.00e+00` `bf16` error).
-4. **Sub-Quadratic `1.63×` Long-Context Speedup & Stable Zero-Shot Extrapolation**: Head-asymmetric `FlexAttention` `BlockMask` skips distant tiles on damped heads for a **`1.63×` Fwd+Bwd speedup at `8K`**, while preventing standard RoPE's out-of-window perplexity explosion (`-34.1%` `4×` extrap PPL from scratch; **`14.69` vs. `13,399.39`** at `4K` after checkpoint surgery, and **`14.71`** even with **`71.9%` KV evicted** at `W=256`).
-5. **Low-Cost Checkpoint Retrofit for Existing Open LLMs (**Track B**)**: Without retraining `3T` tokens from scratch, [`upgrade_hf_llama_to_epr()`](hf_epr.py) converts pretrained HuggingFace `Llama` checkpoints in place (`-22.17M` weights removed) and—using **`9.83M` continued-pretraining tokens (`0.00033%` of `3T`, 47 min on one L4, zero distillation)**—retains **`93.9%`** of `3T` 5-benchmark zero-shot accuracy while unlocking smooth `4K` extrapolation and `-72%` KV compression.
+- **Fewer Parameters, Faster Learning**: Trained from scratch on identical `FineWeb-Edu` data at `1.1B`, EPR uses **`22.17M` fewer parameters** (~`20%` smaller `Q/K` routers) yet reaches **`26.7%` lower validation perplexity** (`225.38` vs. `307.32`) at **`97.2%` of FlashAttention-2 speed**.
+- **`72.1%` Smaller Serving KV Cache**: Includes a custom `@triton.jit` paged decoding kernel that recycles old KV pages on local heads while keeping global heads intact—shrinking `1.1B` continuous-batching KV pools from `1,357 MB` (Standard PagedAttention) to **`379 MB`**.
+- **Faster `8K` Training & Smooth Extrapolation**: `FlexAttention` block-skipping speeds up `8K` Fwd+Bwd by **`1.63×`**, while preventing standard RoPE's perplexity cliff at `2×–4×` longer contexts.
+- **47-Minute Retrofit for Existing Open Models**: Converts off-the-shelf `TinyLlama-1.1B` weights in place (`-22.2M` params; weights at [`DracenW/TinyLlama-1.1B-EPR-Elastic`](https://huggingface.co/DracenW/TinyLlama-1.1B-EPR-Elastic)); after just 47 minutes (`9.8M` tokens) on one L4 GPU, it retains **`93.9%`** of `3T` 5-benchmark accuracy and drops `4K` extrapolated perplexity from `13,399` down to **`14.69`**.
+- **Standard Head Shapes & Built-In Anti-Cheat Audit**: Fits cleanly into standard `64` / `128` GPU head dimensions with zero `V` padding, verified by [`audit_all.py`](audit_all.py) (`0.00e+00` future leakage).
 
 ---
 
@@ -49,30 +49,29 @@
 
 ---
 
-## Core Architecture & Closed-Form Parameter-Saving Law
+## How It Works (Plain Overview) & Parameter-Saving Formula
 
-**EPR Attention** ([`epr_attention.py`](epr_attention.py), [`epr_paged_attention.py`](epr_paged_attention.py), [`hf_epr.py`](hf_epr.py)) folds three geometric primitives—plus **Mass-Elastic Heteroscedastic RBF**—into a single `d_r + d_g + 2 == head_dim` inner-product kernel:
+Instead of adding extra modules outside standard attention, **EPR Attention** ([`epr_attention.py`](epr_attention.py), [`epr_paged_attention.py`](epr_paged_attention.py), [`hf_epr.py`](hf_epr.py)) packs four simple mechanisms into a single standard `head_dim` (`D = 32, 64, 128`) dot product (full derivations in [`docs/MATH.md`](docs/MATH.md)):
 
-1. **Un-Shifted 2-Slot Algebraic Folding (`d_r + d_g + 2 == D`)**: Combines directional fiber resonance ($q_{\text{res},i} \cdot k_{\text{res},j} / \sqrt{d_r}$) with a symmetric head-shared Euclidean-RBF capture potential ($-\frac{\gamma_{h,j}}{2}\|z_i - z_j\|_2^2$) inside exact power-of-2 head dimensions (`D=32 → 24+6+2`; `D=64 → 48+14+2`; `D=128 → 96+30+2`).
-2. **Learnable Zero-Value Vacuum Floor ($e^{v_{0,h}}, V_{\text{vac}} = \mathbf{0}_D$)**: Allows attention heads to stay silent on irrelevant or unanswerable context without polluting `<BOS>` token value norms—and folds into `@triton.jit` PagedAttention online-Softmax registers (`m_i = v0, l_i = 1.0, acc = 0`) with **zero global-memory reads**.
-3. **Intra-Layer Dual-Regime Head Topology**: Within *every* layer, $H - H_{\text{wh}}$ **Damped Heads** apply RoPE + content-driven proper-time decay ($\tau_i - \tau_j \ge 0$) for stable extrapolation, `BlockMask` tile-skipping, and $O(1)$ physical page recycling; $H_{\text{wh}}$ **Wormhole Head(s)** apply **NoPE + zero decay ($\delta\tau \equiv 0$) + high vacuum threshold** for global retrieval.
-4. **Mass-Elastic Heteroscedastic RBF (`--use_elastic_rbf=True`, Default)**: Key potential $u_{h,j}$ dynamically dilates capture variance $\gamma_{h,j} = \gamma_{0,h} / (1 + \alpha_h \sigma(u_{h,j}))$ inside the **same 2-slot `D`-dim kernel** (`97.2%` of `FlashAttention-2` speed at `1.1B`).
+1. **Shared Distance Subspace (`d_r + d_g + 2 = D`)**: Splits each head into directional channels (`d_r`), a shared low-dimensional L2/RBF distance subspace (`d_g`, with key-adaptive width), and `2` norm/bias slots—fitting exact power-of-2 GPU Tensor Core dimensions with zero `V` padding.
+2. **Zero-Value Attention Sink**: Adds a learnable silent slot (zero output vector) so heads can stay quiet on irrelevant context—folded directly into Triton online-Softmax initial registers with zero extra memory reads.
+3. **Local Decay Heads + `1` Global Head per Layer**: Most heads apply RoPE + content-driven decay (enabling smooth extrapolation, `BlockMask` tile-skipping, and $O(1)$ KV-page recycling), while one head group per layer uses `NoPE` + zero decay to preserve long-range retrieval.
 
-### Exact Closed-Form Matrix Parameter-Saving Formula
-Because Query reuses the symmetric base coordinate $z \in \mathbb{R}^{d_g}$ (`H · d_g` columns saved) and the `+2` algebraic slots require zero projection weights (`2(H + H_kv)` columns saved), EPR strictly reduces matrix parameters relative to standard MHA/GQA:
+### Exact Matrix Parameter-Saving Formula
+Because Query reuses the shared distance coordinates `z` and the `+2` norm slots need no projection weights, EPR strictly reduces `Q/K` matrix parameters relative to standard MHA/GQA:
 
 $$\Delta P_{\text{matrix}} = - L \cdot C \cdot \big[\, H(d_g + 1) + H_{\text{kv}} + H_{\text{wh}} \,\big]$$
 
-where $L$ is layer count, $C$ is hidden dimension, $H$ is query head count, $H_{\text{kv}}$ is KV head count, $H_{\text{wh}}$ is Wormhole query head count, and $d_g$ is shared base dimension (`6` at `D=32`, `14` at `D=64`, `30` at `D=128`).
+*(Here $L$ = layers, $C$ = hidden size, $H$ = query heads, $H_{\text{kv}}$ = KV heads, $H_{\text{wh}}$ = global `NoPE` query heads, and $d_g$ = shared distance dim: `6` at `D=32`, `14` at `D=64`, `30` at `D=128`.)*
 
 > [!IMPORTANT]
 > **Verification Boundary (`1.3M → 1.1B` Empirical vs. `> 1.1B` Theoretical):**
-> - **Empirically Verified (`1.3M` → `1.1B`)**: Tested across discrete model tiers with exact integer agreement: **`1.3M` MHA** (`-16,896` matrix params), **`6.0M` MHA** (`-99,840`), **`28M` MHA** (`-396,288`), and **`1.1B` GQA** (`22L, C=2048, 32Q/4KV, H_wh=8, d_g=14` $\implies$ **`-22,167,552`** matrix params; `1,012,252,672` vs. `1,034,420,224` in Track A, and `-22,166,760` net delta after `+792` 1D scalars in Track B).
-> - **Theoretical Scope (`> 1.1B`)**: Scales beyond `1.1B` (e.g., `7B` / `70B`) have **not yet been empirically trained or benchmarked**; however, because $\Delta P_{\text{matrix}}$ is an exact linear-algebraic identity of the projection tensor dimensions, **the parameter-saving equation holds strictly in theory at larger scales**.
+> - **Empirically Verified (`1.3M` → `1.1B`)**: Verified to the exact integer across discrete tiers: **`1.3M` MHA** (`-16,896`), **`6.0M` MHA** (`-99,840`), **`28M` MHA** (`-396,288`), and **`1.1B` GQA** (`22L, C=2048, 32Q/4KV` $\implies$ **`-22,167,552`** matrix params; `-22,166,760` net delta after `+792` 1D scalars).
+> - **Theoretical Scope (`> 1.1B`)**: Larger models (`7B+`) have **not yet been empirically trained**; however, because this equation is a direct linear-algebraic count of tensor shapes, **it holds strictly in theory at arbitrary scale**.
 
-> **Attribution & Physics Disclaimer:** Built on Andrej Karpathy's [`llama2.c`](https://github.com/karpathy/llama2.c) (MIT) and Meta Llama 2 (milestones: [`v2.0` Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [`v1.0` Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0); legacy C export `export.py / run.c` does not yet support EPR). Terms like *proper time*, *vacuum floor*, and *wormhole head* are **inspired by** physical intuition; mathematically all modules are standard differentiable PyTorch/Triton operators (see [`docs/MATH.md`](docs/MATH.md)).
+> **Attribution:** Built on Andrej Karpathy's [`llama2.c`](https://github.com/karpathy/llama2.c) (MIT) and Meta Llama 2 (milestones: [`v2.0` Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [`v1.0` Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0); legacy `export.py / run.c` does not yet support EPR).
 
-**Section Summary (Architecture & Parameter Law)**: By packing Euclidean distance and vacuum sinks into `d_r + d_g + 2 == D`, EPR stays aligned with standard GPU Tensor Core head dimensions while saving ~`20%` of `Q/K` router weights. While the parameter equation is algebraically exact at any width/depth, empirical validation in this repository currently spans `1.3M` to `1.1B`, and multi-billion (`7B+`) scaling behavior remains to be tested empirically.
+**Section Summary**: Packing shared distance scoring and attention sinks into `d_r + d_g + 2 = D` preserves standard GPU head dimensions while trimming ~`20%` of `Q/K` router weights. Empirical verification currently covers `1.3M` to `1.1B`; `7B+` training behavior awaits multi-GPU testing.
 
 ---
 

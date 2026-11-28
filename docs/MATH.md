@@ -1,8 +1,8 @@
-# Mathematical Structure of EPR Attention (v2.0)
+# Mathematical Structure of EPR Attention (`v2.0` / `v3.0`)
 
-**EPR Attention** (**E**uclidean-RBF, **P**roper-time & **R**esonance-fiber Attention) is built from **3 core geometric primitives**—plus two optional extensions (**Mass-Elastic Heteroscedastic RBF** and **Pairwise Resonant Tunneling**)—that fold algebraically into a single hardware-aligned $D$-dimensional attention kernel with **zero $V$-channel padding**.
+**EPR Attention** (**E**uclidean-RBF, **P**roper-time & **R**esonance-fiber Attention) combines three standard differentiable ML primitives—plus an optional key-scaled heteroscedastic `L2-RBF` extension—that fold algebraically into a single hardware-aligned $D$-dimensional inner-product kernel with **zero $V$-channel padding**.
 
-> **Scope Note:** The terminology ("proper time", "vacuum floor", "wormhole head", "mass-elastic radius") reflects geometric and ER=EPR intuition (**inspired by**, not derived from, general relativity or quantum gravity). Below is the exact linear-algebraic formulation implemented in [`epr_attention.py`](../epr_attention.py) and verified to `~2.2e-16` (`float64`) in [`audit_all.py`](../audit_all.py).
+> **Naming Translation Note (Zero Physics Pretension):** Source-code identifiers such as `proper_time`, `attn_vacuum`, `wormhole_heads`, and `gravity_dim` are playful historical leftovers from the author's initial whiteboard sketches—not claims of relativistic or quantum physics. In plain ML terms: *"Euclidean/gravity basin"* = head-shared `L2-RBF` kernel; *"proper time"* = cumulative content-adaptive log-decay; *"vacuum floor"* = zero-value `Softmax1` attention sink; *"wormhole head"* = intra-layer `NoPE` global head. Below is the exact linear-algebraic formulation implemented in [`epr_attention.py`](../epr_attention.py) and [`epr_paged_attention.py`](../epr_paged_attention.py), verified to `~2.2e-16` (`float64`) in [`audit_all.py`](../audit_all.py).
 
 ---
 
