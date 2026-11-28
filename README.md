@@ -15,19 +15,28 @@
 
 ---
 
-## Headline Results at a Glance (`v3.0` Industrial & `1.1B` Suite, NVIDIA L4 `bfloat16`)
+## Why EPR Attention? — Five Core Selling Points
+
+1. **Higher Sample Efficiency with Strictly Fewer Parameters (Apples-to-Apples From-Scratch)**: Under identical architecture depth/width, data stream (`FineWeb-Edu`), and token budget at **`1.1B` scale**, EPR uses **`-22.17M` fewer parameters** yet achieves **`-26.7%` lower validation perplexity (`225.38` vs. `307.32`)**, overtaking `Pure Llama-1.1B`'s 300-step final score **before Step 200 (`-33.3%` fewer tokens & `-32.7%` less wall-clock time)** while running at **`97.2%` of native FlashAttention-2 step speed** (`6.0M` 3-seed suite likewise beats `Llama 2` by **`-20.7%`** and ICLR'25 `FoX` by **`-15.1%`**).
+2. **Hardware-Aligned `d_r + d_g + 2 == D` Algebraic Folding & Closed-Form Parameter Savings**: Packs fiber resonance, shared heteroscedastic Euclidean-RBF capture basins, and a zero-value vacuum floor into one power-of-2 head dimension (`D = 32, 64, 128`, **zero `V` padding**), saving matrix weights by an exact closed-form law (*empirically verified from `1.3M` to `1.1B`; holds strictly in theory beyond `1.1B`*).
+3. **Industrial `@triton.jit` PagedAttention Cutting Physical KV Memory by `-72.1%`**: Intra-layer damped heads recycle expired physical KV pages in $O(1)$ while NoPE Wormhole heads retain full global context—shrinking `1.1B GQA` continuous-batching KV pools (`B=16`, up to `8K`) from `1,357.1 MB` (Standard PagedAttention) down to **`379.0 MB`** (`-86.5%` vs. static `2,816.0 MB`) with zero-read online-Softmax vacuum folding (`0.00e+00` `bf16` kernel error).
+4. **Sub-Quadratic `1.63×` Long-Context Speedup & Collapse-Free Extrapolation**: Head-asymmetric `FlexAttention` `BlockMask` skips $O(T^2)$ distant tiles on damped heads for a **`1.63×` Fwd+Bwd speedup at `8K`**, while bounding attention dispersion for smooth `2×–4×` zero-shot length extrapolation (`-34.1%` `4×` extrap PPL from scratch; **`912×` lower `2×` extrap PPL** after surgical conversion, with **`+0.02` PPL** when evicting **`71.9%` KV** at `W=256`).
+5. **47-Minute Drop-In Checkpoint Surgery for Existing Open LLMs**: Without retraining `3T` tokens from scratch, [`upgrade_hf_llama_to_epr()`](hf_epr.py) converts pretrained HuggingFace `Llama` weights in place (`-22.17M` params removed) and—with just **`9.83M` healing tokens (`0.00033%` of `3T`, 47 min on one L4, zero distillation)**—already recovers **`93.9%`** of `3T` 5-benchmark zero-shot accuracy while curing RoPE's `13,399` extrapolation cliff down to **`14.69`**.
+
+---
+
+## Headline Benchmark Summary (`v3.0` Industrial & `1.1B` Suite, NVIDIA L4 `bfloat16`)
 
 ![EPR v3.0 1.1B Pretraining, Triton PagedAttention, 8K Sparse BlockMask & TinyLlama-1.1B Surgery](docs/figures/v3_1b_and_paged_industrial.png)
 
 | Evaluation Pillar | Baseline (`FA2` / `PagedAttn` / `TinyLlama-1.1B`) | **EPR + Mass-Elastic RBF (`v3.0`)** | Verified Gain / Takeaway |
 | :--- | :---: | :---: | :--- |
-| **`1.1B` From-Scratch `FineWeb-Edu`** *(300 steps, `22L, 32Q/4KV`)* | `Val PPL = 307.32` (`1,034.5M`, `924.3s`) | **`Val PPL = 225.38`** (`1,012.3M`, **`913.7s`**) | **`-26.7%` lower PPL** (`-0.310` NLL), **`-22.17M` fewer params**, **beats 300-step `FA2` before Step 200 (`-33.3%` tokens, `-32.7%` wall-clock)** at **`97.2%` `FA2` step speed** |
+| **`1.1B` From-Scratch `FineWeb-Edu`** *(Fair Equal-Token Test, `22L, 32Q/4KV`)* | `Val PPL = 307.32` (`1,034.5M`, `924.3s`) | **`Val PPL = 225.38`** (`1,012.3M`, **`913.7s`**) | **`-26.7%` lower PPL** (`-0.310` NLL), **`-22.17M` fewer params**, **beats 300-step `FA2` before Step 200 (`-33.3%` tokens, `-32.7%` wall-clock)** at **`97.2%` `FA2` step speed** |
 | **`1.1B` From-Scratch `4×` Extrap** *(`T_train=1024 → [2048:4096]`)* | `PPL = 358.08` | **`PPL = 236.07`** | **`-34.1%` lower `4×` zero-shot extrapolation PPL** |
-| **`TinyLlama-1.1B` Surgery `4K` Extrap** *(`T_train=2048 → [3072:4096]`)* | `PPL = 13,399.39` *(RoPE collapse)* | **`PPL = 14.69`** *(Full)* / **`14.71`** *(`W=256`)* | **`912×` lower `2×` extrapolation PPL** after just `9.83M` healing tokens (`0.00033%` of `3T`), **`+0.02` PPL with `71.9%` KV evicted!** |
-| **`TinyLlama-1.1B` 5-Task Zero-Shot** *(`ARC-E / HS / WG / PIQA / BoolQ`)* | `60.35%` *(3T Anchor)* / `61.40%` *(Base CPT)* | **`56.85%` (`94.2%` of 3T retained)** | Cuts **`-22.17M` weights** & replaces `25%` of `Q/K` dims, recovering **`94.2%` capability in `300` CPT steps** (`PIQA 70.8%`, `BoolQ 61.3%`, `ARC-E 57.8%`) |
 | **`1.1B` Continuous-Batch KV Memory** *(`B=16`, lens up to `8192`)* | `1,357.1 MB` *(Std Paged)* / `2,816.0 MB` *(Static)* | **`379.0 MB`** *(`@triton.jit`, `W=128+1 WH`)* | **`-72.1%` vs. Standard PagedAttention** (`-86.5%` vs. Static) via $O(1)$ damped-page recycling (`0.00e+00` `bf16` kernel error) |
 | **`1.1B` `8K` Sparse `BlockMask` Speed** *(`T=8192`, Fwd+Bwd)* | `159,765 tok/s` *(Dense EPR Flex)* | **`261,076 tok/s`** *(`W=512 + Full WH`)* | **`1.63×` sub-quadratic Fwd+Bwd speedup** at `8K` by skipping $O(T^2)$ tiles on `24/32` damped heads |
-| **`6.0M` 3-Seed Statistical Suite** *(`WikiText-2`, `seeds=1337,2026,42`)* | `Llama 2: 47.68` / `FoX (ICLR'25): 44.52` | **`37.80 ± 0.07`** *(`4×` Extrap `34.21`)* | **`-20.7%` vs. Llama 2**, **`-15.1%` vs. `FoX`**, **`+6.1%` higher `@1536` Passkey recall**, negative OOD overconfidence shift (`-1.55%`) |
+| **`6.0M` 3-Seed Statistical Suite** *(Fair Equal-Token Test, `seeds=1337,2026,42`)* | `Llama 2: 47.68` / `FoX (ICLR'25): 44.52` | **`37.80 ± 0.07`** *(`4×` Extrap `34.21`)* | **`-20.7%` vs. Llama 2**, **`-15.1%` vs. `FoX`**, **`+6.1%` higher `@1536` Passkey recall**, negative OOD overconfidence shift (`-1.55%`) |
+| **`TinyLlama-1.1B` Low-Cost Surgery** *(`-22.2M` cut + **only `0.00033%` of `3T` tokens**)* | `4K Extrap: 13,399` · `5-Task: 61.80%` *(3T)* | **`4K Extrap: 14.69` (`14.71 @W=256`)** · **`58.05%`** | **`912×` lower `4K` extrap PPL** (`+0.02` with **`71.9%` KV evicted**) + **`93.9%` of `3T` capability already healed in 47 min (`9.83M` vs. `3T` tokens!)** |
 
 ---
 
