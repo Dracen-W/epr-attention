@@ -25,6 +25,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from epr_attention import EPRConfig, EPRAttention, EPRKVCache
+from epr_paged_attention import EPRPagedKVCache
 
 
 @dataclass
@@ -70,6 +71,7 @@ class ModelArgs:
 
     rope_style: str = "interleaved"
     use_flex_attention: bool = True
+    flex_damped_window: int = 0
 
     def __post_init__(self):
         if self.use_unified_gravity or self.use_epr:
@@ -98,6 +100,7 @@ class ModelArgs:
             dropout=self.dropout,
             rope_style=self.rope_style,
             use_flex_attention=self.use_flex_attention,
+            flex_damped_window=self.flex_damped_window,
         )
 
 
@@ -360,6 +363,35 @@ class Transformer(nn.Module):
             device=str(device or p0.device),
         )
 
+    def build_paged_kv_cache(
+        self,
+        max_batch_size: int = 1,
+        max_seq_len: Optional[int] = None,
+        window_size: Optional[int] = 128,
+        page_size: int = 16,
+        dtype: Optional[torch.dtype] = None,
+        device: Optional[torch.device] = None,
+        use_triton: bool = True,
+    ) -> EPRPagedKVCache:
+        if not self.params.use_epr:
+            raise ValueError("EPRPagedKVCache requires an EPR Attention model (`use_epr=True`).")
+        attn0: EPRAttention = self.layers[0].attention
+        p0 = next(self.parameters())
+        return EPRPagedKVCache(
+            n_layers=self.n_layers,
+            n_heads=attn0.n_heads,
+            n_kv_heads=attn0.n_kv_heads,
+            head_dim=attn0.head_dim,
+            n_wormhole_kv_heads=attn0.n_wh_kv,
+            window_size=window_size,
+            max_seq_len=max_seq_len or self.params.max_seq_len,
+            max_batch_size=max_batch_size,
+            page_size=page_size,
+            dtype=dtype or p0.dtype,
+            device=device or p0.device,
+            use_triton=use_triton,
+        )
+
     def forward(
         self,
         tokens: torch.Tensor,
@@ -430,9 +462,11 @@ class Transformer(nn.Module):
         pauli_halflife: float = 16.0,
         use_kv_cache: bool = True,
         damped_window: Optional[int] = None,
+        paged_kv: bool = False,
+        page_size: int = 16,
     ) -> torch.Tensor:
         """
-        Autoregressive generation with stateful `EPRKVCache` (when `use_epr=True`)
+        Autoregressive generation with stateful `EPRKVCache` or `EPRPagedKVCache` (`paged_kv=True`)
         and optional Damped Pauli Repulsion decoding (`pauli_alpha > 0`).
         """
         bsz = idx.size(0)
@@ -446,14 +480,24 @@ class Transformer(nn.Module):
 
         kv_cache = None
         if self.params.use_epr and use_kv_cache and max_new_tokens > 0:
-            total_cap = idx.size(1) + max_new_tokens + 8
-            kv_cache = self.build_kv_cache(
-                batch_size=bsz,
-                max_seq_len=total_cap,
-                window_size=damped_window,
-                dtype=next(self.parameters()).dtype,
-                device=idx.device,
-            )
+            total_cap = idx.size(1) + max_new_tokens + 16
+            if paged_kv:
+                kv_cache = self.build_paged_kv_cache(
+                    max_batch_size=bsz,
+                    max_seq_len=total_cap,
+                    window_size=damped_window,
+                    page_size=page_size,
+                    dtype=next(self.parameters()).dtype,
+                    device=idx.device,
+                )
+            else:
+                kv_cache = self.build_kv_cache(
+                    batch_size=bsz,
+                    max_seq_len=total_cap,
+                    window_size=damped_window,
+                    dtype=next(self.parameters()).dtype,
+                    device=idx.device,
+                )
 
         for step_idx in range(max_new_tokens):
             if kv_cache is not None:

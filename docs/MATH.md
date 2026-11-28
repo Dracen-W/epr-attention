@@ -92,3 +92,23 @@ At autoregressive step $t$ with cached running proper-time state $\tau^{\text{st
 $$\tau_{h,t} = \tau^{\text{state}}_{h, t-1} + \delta\tau_{h,t}, \qquad \tau^{\text{state}}_{h, t} \leftarrow \tau_{h,t}$$
 
 Caching `(K_real, V, tau_k)` in a fixed ring buffer of size $W$ for damped KV heads and `(K_real, V)` in full context for Wormhole KV heads achieves **`4.44e-16` (`float64`) parity** with full parallel evaluation prior to eviction, while cutting KV-cache memory by **70.2%–86.1%** at $W = 128$.
+
+---
+
+## 6. Industrial `v3.0` Kernels: Zero-Read Online-Softmax Vacuum PagedAttention & Sub-Quadratic `BlockMask`
+
+### 6.1 Zero-Read Online-Softmax Vacuum Folding in `@triton.jit` PagedAttention ([`epr_paged_attention.py`](../epr_paged_attention.py))
+In Flash-Decoding / PagedAttention over non-contiguous physical pages $p \in \mathcal{P}_b$, each threadblock maintains running online-Softmax scalars $(m, \ell)$ and output accumulator $\mathbf{o} \in \mathbb{R}^D$. Because $V_{\text{vac}} = \mathbf{0}_D$, initializing SRAM registers directly at:
+
+$$m^{(0)} = v_{0,h_{\text{kv}}}, \qquad \ell^{(0)} = 1, \qquad \mathbf{o}^{(0)} = \mathbf{0}_D$$
+
+and applying the standard blockwise update $m^{(n)} = \max(m^{(n-1)}, \max_{k \in B_n} s_k)$, $\ell^{(n)} = \ell^{(n-1)} e^{m^{(n-1)} - m^{(n)}} + \sum_{k \in B_n} e^{s_k - m^{(n)}}$, $\mathbf{o}^{(n)} = \mathbf{o}^{(n-1)} e^{m^{(n-1)} - m^{(n)}} + \sum_{k \in B_n} e^{s_k - m^{(n)}} V_k$ yields at termination:
+
+$$\frac{\mathbf{o}^{(N)}}{\ell^{(N)}} = \frac{\sum_{k} \exp(s_k - m^{(N)}) V_k}{\exp(v_{0,h_{\text{kv}}} - m^{(N)}) + \sum_{k} \exp(s_k - m^{(N)})} = \frac{\sum_{k} \exp(s_k) V_k}{\exp(v_{0,h_{\text{kv}}}) + \sum_{k} \exp(s_k)}$$
+
+which is **algebraically identical to prepending a dummy vacuum token (`2.78e-16` `fp64` parity)** with **zero global-memory reads and zero extra page-table entries**. Simultaneously, expired physical pages on damped heads ($t_{\text{page\_end}} < t_{\text{cur}} + 1 - W$) are popped from the per-sequence block table and returned to `free_d_pages` in $O(1)$.
+
+### 6.2 Asymmetric Sub-Quadratic `FlexAttention` `BlockMask` (`flex_damped_window > 0`)
+For long-context pretraining/prefill ($T \gg W$), setting `flex_damped_window = W` constructs a head-asymmetric `BlockMask` over $128 \times 128$ hardware tiles:
+- **Damped Heads ($h < H_{\text{damped}}$)**: evaluate only tiles intersecting $(j = 0) \lor (0 \le i - j < W)$, skipping all $O(T^2)$ distant tiles in both forward and backward passes.
+- **Wormhole Heads ($h \ge H_{\text{damped}}$)**: evaluate full causal tiles $j \le i$, preserving exact arbitrary-distance retrieval in $O\!\big(T \cdot (\frac{H_{\text{damped}}}{H} W + \frac{H_{\text{wh}}}{H} T)\big)$ total work.

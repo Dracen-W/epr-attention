@@ -1,16 +1,22 @@
 <div align="center">
 
-# EPR Attention v2.0 (Euclidean-RBF, Proper-Time & Resonance-Fiber)
+# EPR Attention (Euclidean-RBF, Proper-Time & Resonance-Fiber)
 
 **An Experimental Geometry-Folded Long-Context Attention Mechanism Built on `llama2.c`**
 
-**English** | [简体中文](README_zh.md) · [📐 Math & Exact Folding](docs/MATH.md) · [🗂️ Raw v2.0 Telemetry](benchmarks/raw_v2/README.md) · [📊 v1.0 Legacy Archive](docs/BENCHMARKS.md)
+**English** | [简体中文](README_zh.md) · [📐 Math & Exact Folding](docs/MATH.md) · [🗂️ Raw v2.0 Telemetry](benchmarks/raw_v2/README.md) · [🏷️ v2.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 Legacy Archive](docs/BENCHMARKS.md) · [🏷️ v1.0 Release](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
-[![8-Pillar Audit](https://img.shields.io/badge/8--Pillar%20Audit-0.00e+00%20Leak-brightgreen)](audit_all.py)
+[![9-Pillar Audit](https://img.shields.io/badge/9--Pillar%20Audit-0.00e+00%20Leak-brightgreen)](audit_all.py)
+[![Status: v3.0-dev](https://img.shields.io/badge/Stage-v3.0--dev%20Industrialization-teal)](epr_paged_attention.py)
 
 </div>
+
+> [!IMPORTANT]
+> **Active Milestone Status (`v3.0-dev` on `main`):**
+> - **[`v2.0` Milestone Snapshot](https://github.com/Dracen-W/epr-attention/releases/tag/2.0)** archives the completed unified `d_r + d_g + 2 == D` core, **Mass-Elastic Heteroscedastic RBF**, **Pairwise Resonant Tunneling**, 3-seed NVIDIA L4 statistical benchmarks, and OOD / abstention probes (raw logs in [`benchmarks/raw_v2/`](benchmarks/raw_v2/README.md); [`v1.0` snapshot here](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)).
+> - **`v3.0-dev` (Current `main` — In Progress)**: Industrialization & `1.1B`-scale evaluation phase. Custom `@triton.jit` **Asymmetric PagedAttention** ([`epr_paged_attention.py`](epr_paged_attention.py) with $O(1)$ damped-page recycling & zero-read online-Softmax vacuum folding), **Sub-Quadratic `FlexAttention` `BlockMask`** (`flex_damped_window`), and **HuggingFace `PreTrainedModel` + `1.1B` frequency-preserving surgery** ([`hf_epr.py`](hf_epr.py), [`bench_paged_and_sparse.py`](bench_paged_and_sparse.py), [`eval_1b_industrial.py`](eval_1b_industrial.py)) are implemented and pass all **9 local `fp64` audit pillars**; `1.1B` standard benchmark runs are currently queued for GPU execution.
 
 > **Attribution & Scope:** Built on Andrej Karpathy's [`llama2.c`](https://github.com/karpathy/llama2.c) (MIT License) and the **Meta Llama 2** architecture (Touvron et al., 2023). Note that `export.py`, `run.c`, and `runq.c` are inherited from `llama2.c` and **do not yet support EPR Attention** (PyTorch only). See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`CITATION.bib`](CITATION.bib).
 
@@ -114,28 +120,32 @@ During post-hoc literature auditing (through late 2026), several mathematical pa
 - **Intra-Layer Dual-Regime Topology vs. Layer-Interleaved Hybrids**: Unlike **Llama 4 (`iRoPE`)**, **Gemma 3/4 (`p-RoPE` / local-global layers)**, **RNoPE/SWAN**, **DuoAttention (ICLR 2025)**, or **Qwen3.5 / Kimi Linear** (which either interleave separate local/global layers or require heterogeneous linear-RNN + FlashAttention kernels), EPR unifies damped local heads and NoPE global retrieval heads **inside every layer within a single $D$-aligned kernel**, avoiding `Critical Attention Scaling` dispersion collapse (Chen et al., ICLR 2026) without inference temperature hacks.
 - **Folded Heteroscedastic Euclidean-RBF**: Related to L2/Gaussian attention (`Fast Gauss Sums via Flash Attention`, 2026), extended here via key-elastic inverse variance $\gamma_{h,j}$ folded into `d_r + d_g + 2 == D` with net parameter savings.
 
-**Verified vs. Pending Roadmap:**
-- ✅ **Verified**: 8-pillar `fp64` + CUDA `bf16` `FlexAttention` zero-leakage audit (`0.00e+00`), 3-seed statistical superiority (`seeds = 1337, 2026, 42`), same-step & iso-wallclock advantage, `W=128` stateful `EPRKVCache` zero-drop eviction, OOD calibration & zero-cost abstention probe, 1.1B GQA throughput.
-- ⏳ **Next Industrialization Milestone**: Full pretraining & downstream benchmarks (`MMLU / GSM8K / RULER`) at `≥1.1B` scale; `FlexAttention` sparse `BlockMask` pruning of exponentially decayed tiles ($\Delta\tau > 15$) for sub-quadratic $O(T \cdot W)$ long-context training; PagedAttention (`vLLM` / `SGLang`) kernel integration.
+**Verified vs. Active `v3.0` Industrialization Roadmap:**
+- ✅ **Verified (`v2.0` + `v3.0` Kernel Math)**: 9-pillar `fp64` + CUDA `bf16` zero-leakage audit (`0.00e+00`), `EPRPagedKVCache` $O(1)$ damped-page recycling (`2.78e-16` parity with dense `EPRKVCache`), 3-seed statistical superiority (`seeds = 1337, 2026, 42`), same-step & iso-wallclock advantage, `W=128` zero-drop KV eviction, OOD calibration & zero-cost abstention probe, 1.1B GQA throughput.
+- 🚧 **In Progress (`v3.0` GPU Execution Queue)**: Executing [`bench_paged_and_sparse.py`](bench_paged_and_sparse.py) (1.1B Triton PagedAttention continuous-batching throughput & `8K` sub-quadratic `BlockMask` speedup) and [`eval_1b_industrial.py`](eval_1b_industrial.py) (`1.1B` from-scratch FineWeb-Edu convergence + `TinyLlama-1.1B` surgery on `ARC-Easy / HellaSwag / WinoGrande / PIQA / 4K Passkey NIAH`).
 
 ---
 
 ## 4. Quick Start
 
 ```bash
-# 1. Run 8-pillar mathematical, causality, stateful EPRKVCache & CUDA FlexAttention audit
+# 1. Run 9-pillar mathematical, causality, stateful/paged KV-cache, HF wrapper & CUDA audit
 python3 audit_all.py
 
 # 2. Train 6M EPR + Mass-Elastic RBF (recommended balanced flagship) vs Pure Llama 2
 python3 train.py config/train_wikitext2_colab_scale.py --out_dir=out-6m-base --use_epr=False
 python3 train.py config/train_wikitext2_colab_scale.py --out_dir=out-6m-epr-elastic --use_epr=True --use_elastic_rbf=True
 
-# 3. Unified evaluation suite (384-seq bucketed PPL, 200-trial needle, counterfactual binding, KV eviction & OOD probe)
+# 3. Unified 6M evaluation suite (bucketed PPL, 200-trial needle, counterfactual binding, KV eviction & OOD probe)
 python3 eval_extrapolation.py out-6m-base out-6m-epr-elastic --lengths=256,512,1024,2048
 python3 eval_needle.py out-6m-base out-6m-epr-elastic --distances=64,128,256,512,1024,1536
 python3 eval_associative_recall.py out-6m-base out-6m-epr-elastic
 python3 eval_kv_eviction.py out-6m-epr-elastic
 python3 eval_ood_hallucination.py out-6m-base out-6m-epr-elastic
+
+# 4. v3.0 Industrialization Suite (CUDA GPU: Triton PagedAttention, 8K Sparse BlockMask & 1.1B Benchmarks)
+python3 bench_paged_and_sparse.py
+python3 eval_1b_industrial.py
 ```
 
 ---

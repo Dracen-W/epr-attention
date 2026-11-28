@@ -44,20 +44,52 @@ def _get_compiled_flex_attention():
     return _COMPILED_FLEX_ATTN
 
 
-def _get_flex_causal_block_mask(seqlen: int, use_vacuum: bool, device: torch.device):
-    key = (seqlen, use_vacuum, str(device))
+def _get_flex_causal_block_mask(
+    seqlen: int,
+    use_vacuum: bool,
+    device: torch.device,
+    n_heads: int = 0,
+    n_damped: int = 0,
+    damped_window: int = 0,
+):
+    """
+    Build & cache a PyTorch `FlexAttention` `BlockMask`:
+      - `damped_window <= 0`: Full causal mask (`H=None` broadcast).
+      - `damped_window > 0`: Hardware-native Asymmetric Sub-Quadratic `BlockMask` (`H=n_heads`)!
+        Damped heads (`h < n_damped`) skip all distant tiles outside `damped_window` (keeping
+        index 0 when `use_vacuum=True`), while Wormhole heads (`h >= n_damped`) attend full causal!
+    """
+    eff_win = damped_window if (0 < damped_window < seqlen and n_damped > 0) else 0
+    key = (seqlen, use_vacuum, n_heads if eff_win > 0 else 0, n_damped if eff_win > 0 else 0, eff_win, str(device))
     if key not in _FLEX_BLOCK_MASK_CACHE:
-        if use_vacuum:
-            def _mask(b, h, q_idx, kv_idx):
-                return kv_idx <= q_idx + 1
-            kv_len = seqlen + 1
+        if eff_win == 0:
+            if use_vacuum:
+                def _mask(b, h, q_idx, kv_idx):
+                    return kv_idx <= q_idx + 1
+                kv_len = seqlen + 1
+            else:
+                def _mask(b, h, q_idx, kv_idx):
+                    return kv_idx <= q_idx
+                kv_len = seqlen
+            _FLEX_BLOCK_MASK_CACHE[key] = _create_block_mask(
+                _mask, B=None, H=None, Q_LEN=seqlen, KV_LEN=kv_len, device=device
+            )
         else:
-            def _mask(b, h, q_idx, kv_idx):
-                return kv_idx <= q_idx
-            kv_len = seqlen
-        _FLEX_BLOCK_MASK_CACHE[key] = _create_block_mask(
-            _mask, B=None, H=None, Q_LEN=seqlen, KV_LEN=kv_len, device=device
-        )
+            if use_vacuum:
+                def _asym_mask(b, h, q_idx, kv_idx):
+                    causal = kv_idx <= (q_idx + 1)
+                    in_win = (kv_idx == 0) | ((q_idx + 1 - kv_idx) < eff_win)
+                    return causal & ((h >= n_damped) | in_win)
+                kv_len = seqlen + 1
+            else:
+                def _asym_mask(b, h, q_idx, kv_idx):
+                    causal = kv_idx <= q_idx
+                    in_win = (q_idx - kv_idx) < eff_win
+                    return causal & ((h >= n_damped) | in_win)
+                kv_len = seqlen
+            _FLEX_BLOCK_MASK_CACHE[key] = _create_block_mask(
+                _asym_mask, B=None, H=n_heads, Q_LEN=seqlen, KV_LEN=kv_len, device=device
+            )
     return _FLEX_BLOCK_MASK_CACHE[key]
 
 
@@ -128,6 +160,7 @@ class EPRConfig:
     dropout: float = 0.0
     rope_style: str = "interleaved"       # "interleaved" (llama2.c) or "half_split" (HuggingFace)
     use_flex_attention: bool = True       # Auto-route CUDA bf16/fp16 (T>=256, dropout==0) to fused FlexAttention
+    flex_damped_window: int = 0           # >0 enables sub-quadratic BlockMask tile-skipping on damped heads!
 
 
 class EPRKVCache:
@@ -353,6 +386,7 @@ class EPRAttention(nn.Module):
         self.use_bilateral_mass = cfg.use_bilateral_mass
         self.use_nested_time = cfg.use_nested_time
         self.use_flex_attention = cfg.use_flex_attention
+        self.flex_damped_window = cfg.flex_damped_window
 
         if self.use_elastic_rbf and self.use_bilateral_mass:
             raise ValueError("use_elastic_rbf requires use_bilateral_mass=False (uses direct un-shifted 2-slot packing).")
@@ -612,8 +646,17 @@ class EPRAttention(nn.Module):
     ) -> torch.Tensor:
         B, T, _ = x.shape
 
-        # --- Path 1: Stateful Autoregressive Decoding with Asymmetric EPRKVCache ---
+        # --- Path 1: Stateful Autoregressive Decoding with EPRPagedKVCache or EPRKVCache ---
         if kv_cache is not None:
+            if hasattr(kv_cache, "write_and_attend"):
+                tau_off = kv_cache.tau_state[layer_idx][:B]
+                q_aug, _, k_real, xv, _, tau = self._compute_step_tensors(x, freqs_cos, freqs_sin, tau_offset=tau_off)
+                out = kv_cache.write_and_attend(
+                    layer_idx, q_aug, k_real, xv, tau, self.v0,
+                    use_vacuum=self.use_attn_vacuum, use_time_decay=self.use_time_dilation,
+                )
+                return self.resid_dropout(self.wo(out.transpose(1, 2).contiguous().view(B, T, -1)))
+
             tau_off = kv_cache.tau_state[layer_idx]
             q_aug, k_vac, k_real, xv, _, tau = self._compute_step_tensors(x, freqs_cos, freqs_sin, tau_offset=tau_off)
             k_d_act, v_d_act, tau_d_act, k_w_act, v_w_act = kv_cache.update(layer_idx, k_real, xv, tau)
@@ -701,7 +744,10 @@ class EPRAttention(nn.Module):
         if can_use_flex:
             tau_f = tau.float().contiguous()
             tau_k = tau_f.clone()
-            block_mask = _get_flex_causal_block_mask(T, self.use_attn_vacuum, x.device)
+            block_mask = _get_flex_causal_block_mask(
+                T, self.use_attn_vacuum, x.device,
+                n_heads=self.n_heads, n_damped=self.n_damped, damped_window=self.flex_damped_window,
+            )
 
             if self.use_resonant_tunneling:
                 t_beta = F.softplus(self.tunnel_beta.float()).contiguous()

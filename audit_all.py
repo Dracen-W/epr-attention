@@ -326,9 +326,9 @@ def audit_7_flex_attention_cuda():
     device = "cuda"
     B, T = 2, 256
     for label, kw in [
-        ("EPR v2.0 Distilled (MHA)", dict(dim=256, n_heads=4, n_kv_heads=4)),
-        ("EPR + Elastic-RBF (GQA)",  dict(dim=256, n_heads=8, n_kv_heads=2, use_elastic_rbf=True)),
-        ("EPR + Resonant Tunneling", dict(dim=256, n_heads=4, n_kv_heads=4, use_resonant_tunneling=True)),
+            ("EPR v2.0 Distilled (MHA)", dict(dim=256, n_heads=4, n_kv_heads=4)),
+            ("EPR + Elastic-RBF (GQA)",  dict(dim=256, n_heads=8, n_kv_heads=2, use_elastic_rbf=True)),
+            ("EPR + Resonant Tunneling", dict(dim=256, n_heads=4, n_kv_heads=4, use_resonant_tunneling=True)),
     ]:
         torch.manual_seed(42)
         m_flex = EPRAttention(EPRConfig(use_flex_attention=True, **kw)).to(device=device, dtype=torch.bfloat16).eval()
@@ -352,6 +352,22 @@ def audit_7_flex_attention_cuda():
             assert leak == 0.0, f"FlexAttention future leak on {label}: {leak}"
 
         print(f"  [PASS] {label:28s} | bf16 parity={diff:.2e} | future_leak={leak:.2e}")
+
+    # Also verify Asymmetric Sub-Quadratic BlockMask (`flex_damped_window=128` at `T=512`)!
+    torch.manual_seed(99)
+    T_sp = 512
+    m_sp = EPRAttention(EPRConfig(dim=256, n_heads=8, n_kv_heads=2, use_elastic_rbf=True, flex_damped_window=128)).to(device=device, dtype=torch.bfloat16).eval()
+    fc_sp, fs_sp = mod.precompute_freqs_cis(m_sp.d_r, T_sp)
+    fc_sp, fs_sp = fc_sp.to(device), fs_sp.to(device)
+    x_sp = torch.randn(B, T_sp, 256, device=device, dtype=torch.bfloat16)
+    with torch.no_grad():
+        y_sp = m_sp(x_sp, fc_sp, fs_sp)
+        x_sp_pert = x_sp.clone()
+        x_sp_pert[:, 256:, :] = torch.randn_like(x_sp_pert[:, 256:, :])
+        y_sp_pert = m_sp(x_sp_pert, fc_sp, fs_sp)
+        sp_leak = (y_sp[:, :256, :].float() - y_sp_pert[:, :256, :].float()).abs().max().item()
+        assert sp_leak == 0.0 and torch.isfinite(y_sp).all(), f"Sparse BlockMask error: leak={sp_leak}"
+    print(f"  [PASS] {'Sparse BlockMask (W=128, GQA)':28s} | finite=True      | future_leak={sp_leak:.2e}")
 
 
 def audit_8_epr_kvcache():
@@ -403,6 +419,130 @@ def audit_8_epr_kvcache():
         print(f"  [PASS] {label:38s} | step={diff_step:.2e} | prefill+dec={diff_mix:.2e} | pre-evict={diff_w:.2e}")
 
 
+def audit_9_paged_attention_and_hf():
+    print("\n" + "=" * 78)
+    print("[AUDIT 9] Industrial EPRPagedKVCache (O(1) Page Recycling, Var-Len & Triton) + HF Wrapper")
+    print("=" * 78)
+    from epr_paged_attention import EPRPagedKVCache
+    from hf_epr import EPRLlamaConfig, EPRLlamaForCausalLM
+
+    torch.manual_seed(2026)
+    for label, cfg in [
+        ("Paged MHA (4H/4KV, page=8, W=16)",     EPRConfig(dim=128, n_heads=4, n_kv_heads=4, use_elastic_rbf=True)),
+        ("Paged GQA (8H/2KV, page=8, W=16)",     EPRConfig(dim=256, n_heads=8, n_kv_heads=2, n_wormhole_heads=4, rope_style="half_split", use_elastic_rbf=True)),
+    ]:
+        attn = EPRAttention(cfg).double().eval()
+        B, T = 3, 40
+        x = torch.randn(B, T, cfg.dim, dtype=torch.float64)
+        fc, fs = mod.precompute_freqs_cis(attn.d_r, T)
+        fc, fs = fc.double(), fs.double()
+
+        with torch.no_grad():
+            # Compare EPRPagedKVCache (with page_size=8, window_size=16 -> active O(1) page eviction & recycling!)
+            # bit-for-bit against EPRKVCache (window_size=16)!
+            c_dense = EPRKVCache(
+                n_layers=1, n_heads=attn.n_heads, n_kv_heads=attn.n_kv_heads,
+                head_dim=attn.head_dim, n_wormhole_kv_heads=attn.n_wh_kv,
+                window_size=16, max_seq_len=64, batch_size=B, dtype=torch.float64,
+            )
+            c_paged = EPRPagedKVCache(
+                n_layers=1, n_heads=attn.n_heads, n_kv_heads=attn.n_kv_heads,
+                head_dim=attn.head_dim, n_wormhole_kv_heads=attn.n_wh_kv,
+                window_size=16, max_seq_len=64, max_batch_size=B, page_size=8, dtype=torch.float64,
+            )
+            y_dense = torch.cat([attn(x[:, t : t + 1], fc[t : t + 1], fs[t : t + 1], kv_cache=c_dense, layer_idx=0) for t in range(T)], dim=1)
+            y_paged = torch.cat([attn(x[:, t : t + 1], fc[t : t + 1], fs[t : t + 1], kv_cache=c_paged, layer_idx=0) for t in range(T)], dim=1)
+            diff_pg = (y_dense - y_paged).abs().max().item()
+            assert diff_pg < 1e-13, f"EPRPagedKVCache vs EPRKVCache mismatch: {diff_pg}"
+
+            # Verify O(1) damped physical page recycling: across T=40 tokens (5 pages), each sequence may hold at most 3 pages (`ceil(16/8)+1 = 3`)!
+            max_held = max(len(c_paged._d_pages_seq[b]) for b in range(B))
+            assert max_held <= 3, f"Damped page leak! Held {max_held} pages instead of <= 3"
+
+        print(f"  [PASS] {label:38s} | fp64_parity={diff_pg:.2e} | max_damped_pages={max_held}/3 (O(1) recycled)")
+
+    # Verify Transformer.generate(paged_kv=True) matches generate(paged_kv=False) bit-for-bit!
+    m_gen = mod.Transformer(mod.ModelArgs(dim=128, n_layers=2, n_heads=4, vocab_size=128, max_seq_len=64, dropout=0.0, use_epr=True, use_elastic_rbf=True)).eval()
+    prompt = torch.tensor([[3, 14, 15, 9, 26, 5]], dtype=torch.long)
+    y_g1 = m_gen.generate(prompt, max_new_tokens=20, temperature=0.0, use_kv_cache=True, damped_window=16, paged_kv=False)
+    y_g2 = m_gen.generate(prompt, max_new_tokens=20, temperature=0.0, use_kv_cache=True, damped_window=16, paged_kv=True, page_size=8)
+    assert torch.equal(y_g1, y_g2), "generate(paged_kv=True) diverged from generate(paged_kv=False)!"
+    print("  [PASS] End-to-end Transformer.generate(paged_kv=True) matches dense EPRKVCache bit-for-bit!")
+
+    # Verify HuggingFace EPRLlamaForCausalLM wrapper forward & loss
+    hf_cfg = EPRLlamaConfig(vocab_size=256, dim=128, n_layers=2, n_heads=4, n_kv_heads=2, hidden_dim=384, multiple_of=32, max_seq_len=64)
+    hf_m = EPRLlamaForCausalLM(hf_cfg).eval()
+    ids = torch.randint(0, 256, (2, 16))
+    out_hf = hf_m(ids, labels=ids)
+    loss_hf = out_hf[0] if isinstance(out_hf, tuple) else out_hf.loss
+    assert torch.isfinite(loss_hf), "HF wrapper produced non-finite loss!"
+    print(f"  [PASS] HuggingFace EPRLlamaForCausalLM wrapper forward/loss healthy (loss={loss_hf.item():.4f})")
+
+    # If CUDA + Triton available, verify fused @triton.jit `_epr_paged_decode_kernel` against exact reference on variable-length batch!
+    if torch.cuda.is_available():
+        for t_lbl, t_cfg in [
+            ("Triton Paged MHA (bf16, var-len)", EPRConfig(dim=256, n_heads=4, n_kv_heads=4, use_elastic_rbf=True)),
+            ("Triton Paged GQA (bf16, 32Q/4KV)", EPRConfig(dim=512, n_heads=8, n_kv_heads=2, n_wormhole_heads=4, rope_style="half_split", use_elastic_rbf=True)),
+        ]:
+            attn_cu = EPRAttention(t_cfg).to(device="cuda", dtype=torch.bfloat16).eval()
+            fc_cu, fs_cu = mod.precompute_freqs_cis(attn_cu.d_r, 128)
+            fc_cu, fs_cu = fc_cu.to("cuda"), fs_cu.to("cuda")
+
+            c_tri = EPRPagedKVCache(
+                n_layers=1, n_heads=attn_cu.n_heads, n_kv_heads=attn_cu.n_kv_heads,
+                head_dim=attn_cu.head_dim, n_wormhole_kv_heads=attn_cu.n_wh_kv,
+                window_size=32, max_seq_len=128, max_batch_size=3, page_size=16,
+                dtype=torch.bfloat16, device="cuda", use_triton=True,
+            )
+            c_ref = EPRPagedKVCache(
+                n_layers=1, n_heads=attn_cu.n_heads, n_kv_heads=attn_cu.n_kv_heads,
+                head_dim=attn_cu.head_dim, n_wormhole_kv_heads=attn_cu.n_wh_kv,
+                window_size=32, max_seq_len=128, max_batch_size=3, page_size=16,
+                dtype=torch.bfloat16, device="cuda", use_triton=False,
+            )
+            with torch.no_grad():
+                # Prefill variable lengths per slot: b=0 -> 19 tokens, b=1 -> 47 tokens, b=2 -> 75 tokens!
+                lens = [19, 47, 75]
+                for b_i, L_b in enumerate(lens):
+                    xb = torch.randn(1, L_b, t_cfg.dim, device="cuda", dtype=torch.bfloat16)
+                    for step_t in range(L_b):
+                        q_a, _, k_r, xv, _, tau = attn_cu._compute_step_tensors(
+                            xb[:, step_t : step_t + 1], fc_cu[step_t : step_t + 1], fs_cu[step_t : step_t + 1],
+                            tau_offset=c_tri.tau_state[0][b_i : b_i + 1],
+                        )
+                        # Advance only sequence slot b_i for heterogeneous length setup
+                        pos = c_tri._cpu_seq_lens[b_i]
+                        dp, wp, off = c_tri._ensure_token_position_allocated(b_i, pos)
+                        c_ref._ensure_token_position_allocated(b_i, pos)
+                        c_tri.tau_state[0][b_i] = tau[0, :, -1:]
+                        c_ref.tau_state[0][b_i] = tau[0, :, -1:]
+                        c_tri.k_damped_pool[0][dp, :, off, :] = k_r[0, : c_tri.n_damped_kv, 0, :]
+                        c_tri.v_damped_pool[0][dp, :, off, :] = xv[0, : c_tri.n_damped_kv, 0, :]
+                        c_tri.tau_damped_pool[0][dp, :, off] = tau[0, : c_tri.n_damped_q, 0].float()
+                        c_tri.k_wh_pool[0][wp, :, off, :] = k_r[0, c_tri.n_damped_kv :, 0, :]
+                        c_tri.v_wh_pool[0][wp, :, off, :] = xv[0, c_tri.n_damped_kv :, 0, :]
+
+                        c_ref.k_damped_pool[0][dp, :, off, :] = k_r[0, : c_ref.n_damped_kv, 0, :]
+                        c_ref.v_damped_pool[0][dp, :, off, :] = xv[0, : c_ref.n_damped_kv, 0, :]
+                        c_ref.tau_damped_pool[0][dp, :, off] = tau[0, : c_ref.n_damped_q, 0].float()
+                        c_ref.k_wh_pool[0][wp, :, off, :] = k_r[0, c_ref.n_damped_kv :, 0, :]
+                        c_ref.v_wh_pool[0][wp, :, off, :] = xv[0, c_ref.n_damped_kv :, 0, :]
+                c_tri._sync_tables_to_device(3)
+                c_ref._sync_tables_to_device(3)
+
+                # Now run simultaneous continuous-batched decode step (`B=3`, `T=1`) across `[20, 48, 76]`!
+                x_step = torch.randn(3, 1, t_cfg.dim, device="cuda", dtype=torch.bfloat16)
+                # Use per-seq RoPE cos/sin
+                q_s, _, k_s, v_s, _, tau_s = attn_cu._compute_step_tensors(
+                    x_step, fc_cu[75:76], fs_cu[75:76], tau_offset=c_tri.tau_state[0][:3]
+                )
+                y_tri = c_tri.write_and_attend(0, q_s, k_s, v_s, tau_s, attn_cu.v0)
+                y_ref = c_ref.write_and_attend(0, q_s, k_s, v_s, tau_s, attn_cu.v0)
+                tdiff = (y_tri.float() - y_ref.float()).abs().max().item()
+                assert tdiff < 1.5e-2, f"Triton PagedAttention kernel mismatch: {tdiff}"
+            print(f"  [PASS] {t_lbl:38s} | triton_vs_exact={tdiff:.2e} (seq_lens=[20, 48, 76])")
+
+
 def main():
     ckpt_path = None
     for a in sys.argv[1:]:
@@ -429,9 +569,10 @@ def main():
     audit_6_pauli_and_cached_generate()
     audit_7_flex_attention_cuda()
     audit_8_epr_kvcache()
+    audit_9_paged_attention_and_hf()
 
     print("\n" + "=" * 78)
-    print("ALL 8 UNIFIED AUDIT PILLARS PASSED WITH ZERO LEAKS AND MACHINE-PRECISION PARITY!")
+    print("ALL 9 UNIFIED AUDIT PILLARS PASSED WITH ZERO LEAKS AND MACHINE-PRECISION PARITY!")
     print("=" * 78)
 
 

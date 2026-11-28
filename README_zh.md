@@ -1,16 +1,22 @@
 <div align="center">
 
-# EPR Attention v2.0（欧氏 RBF · 固有时间 · 共振纤维注意力机制）
+# EPR Attention（欧氏 RBF · 固有时间 · 共振纤维注意力机制）
 
 **基于 `llama2.c` 构建的实验性几何折叠长上下文注意力架构**
 
-[English](README.md) | **简体中文** · [📐 数学推导与精确折叠](docs/MATH.md) · [🗂️ v2.0 原始实验数据仓](benchmarks/raw_v2/README.md) · [📊 v1.0 旧版基准归档](docs/BENCHMARKS_zh.md)
+[English](README.md) | **简体中文** · [📐 数学推导与精确折叠](docs/MATH.md) · [🗂️ v2.0 原始实验数据仓](benchmarks/raw_v2/README.md) · [🏷️ v2.0 存档 Tag](https://github.com/Dracen-W/epr-attention/releases/tag/2.0) · [📊 v1.0 旧版基准归档](docs/BENCHMARKS_zh.md) · [🏷️ v1.0 存档 Tag](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built with Meta Llama 2](https://img.shields.io/badge/Architecture-Meta%20Llama%202-blueviolet)](NOTICE)
-[![8-Pillar Audit](https://img.shields.io/badge/8--Pillar%20Audit-0.00e+00%20Leak-brightgreen)](audit_all.py)
+[![9-Pillar Audit](https://img.shields.io/badge/9--Pillar%20Audit-0.00e+00%20Leak-brightgreen)](audit_all.py)
+[![Status: v3.0-dev](https://img.shields.io/badge/Stage-v3.0--dev%20工业化与B级测试推进中-teal)](epr_paged_attention.py)
 
 </div>
+
+> [!IMPORTANT]
+> **当前研发阶段说明（`main` 分支正推进 `v3.0` 工业化与 1B 级实测）：**
+> - **[`v2.0` 阶段里程碑存档](https://github.com/Dracen-W/epr-attention/releases/tag/2.0)**：已完整冻结统一 `d_r + d_g + 2 == D` 核心重构、**质量弹性异方差 RBF**、**逐对共振隧穿**、NVIDIA L4 三随机种子统计对撞与 OOD 抗幻觉探针（全量原始日志归档于 [`benchmarks/raw_v2/`](benchmarks/raw_v2/README.md)；早期原型见 [`v1.0` Tag](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)）。
+> - **`v3.0-dev`（当前 `main` 分支推进中）**：已完成 **原生 `@triton.jit` 非对称 PagedAttention 算子**（[`epr_paged_attention.py`](epr_paged_attention.py)，支持阻尼物理页 $O(1)$ 自动回收与在线 Softmax 零读取真空融合）、**亚平方 `FlexAttention BlockMask` 稀疏跳块**（`flex_damped_window`），以及 **HuggingFace 标准封装 + `1.1B` 保频减参架构手术套件**（[`hf_epr.py`](hf_epr.py)、[`bench_paged_and_sparse.py`](bench_paged_and_sparse.py)、[`eval_1b_industrial.py`](eval_1b_industrial.py)），并全部通过本地 **9 维 `fp64` 精度审计**，正排队等待大显存 GPU 完成十亿参数级（`1.1B`）主流榜单实测。
 
 > **归属与适用范围声明：** 本项目基于 Andrej Karpathy 的 [`llama2.c`](https://github.com/karpathy/llama2.c)（MIT License）与 **Meta Llama 2** 架构（Touvron et al., 2023）构建。仓库中的 `export.py`、`run.c`、`runq.c` 继承自原版 `llama2.c`，**暂不支持 EPR 架构导出与 C 端推理**（当前仅支持 PyTorch）。详见 [`LICENSE`](LICENSE)、[`NOTICE`](NOTICE) 与 [`CITATION.bib`](CITATION.bib)。
 
@@ -114,28 +120,32 @@ $$\Delta P_{\text{matrix}} = - L \cdot C \cdot \big[\, H(d_g + 1) + H_{\text{kv}
 - **层内单核双态 vs. 跨层异构混合**：区别于 **Llama 4 (`iRoPE`)**、**Gemma 3/4 (`p-RoPE` 局部/全局交错层)**、**DuoAttention (ICLR 2025)** 以及 **Qwen3.5 / Kimi Linear**（需同时维护线性状态机与全注意力两套异构算子，或连续多层无全局视野），EPR 在**每一层同一个 $D$ 对齐核内**同时实现软遗忘与精确虫洞检索，且顺带削减约 `20%` 的 `Q/K` 路由参数。
 - **折叠异方差欧氏 RBF**：与高斯/L2 注意力（如 `Fast Gauss Sums via Flash Attention`, 2026）相关，此处原创引入随键势膨胀的异方差弹性半径 $\gamma_{h,j}$ 并无损塞入双槽代数恒等式。
 
-**已验证 vs. 下一阶段工业化路线图：**
-- ✅ **已完成闭环验证**：8 维 `fp64` + CUDA `bf16` `FlexAttention` 零因果泄漏审计（`0.00e+00`）；3 随机种子显著性优势；同 Step 与同耗时双反超；`W=128` 滑窗驱逐零损；OOD 抗盲目自信与零成本拒答探针；1.1B GQA 吞吐基准。
-- ⏳ **下一步工业化攻坚（待大卡算力就位）**：① `≥1.1B` 规模充分预训练与主流榜单（MMLU / GSM8K / RULER）实证；② 利用阻尼头指数衰减特性接入 `FlexAttention` **`BlockMask` 稀疏跳块**（将 $\Delta\tau > 15$ 的远古空块在训练期直接跳过，实现近似 $O(T \cdot W)$ 亚平方超长预填充）；③ 适配 `vLLM / SGLang` PagedAttention 生产级推理算子。
+**已完成验证 vs. `v3.0` 工业化推进清单：**
+- ✅ **已完成闭环验证（`v2.0` + `v3.0` 算子数学审计）**：9 维 `fp64` + CUDA `bf16` 零因果泄漏审计（`0.00e+00`）；`EPRPagedKVCache` 物理页 $O(1)$ 自动回收与稠密缓存对齐（误差 `2.78e-16`）；3 随机种子显著性优势；同 Step 与同耗时双反超；`W=128` 滑窗驱逐零损；OOD 抗盲目自信与零成本拒答探针；1.1B GQA 吞吐基准。
+- 🚧 **正在执行（`v3.0` GPU 实测队列）**：运行 [`bench_paged_and_sparse.py`](bench_paged_and_sparse.py)（`1.1B` Triton PagedAttention 变长并发吞吐与 `8K` 亚平方 `BlockMask` 加速比）以及 [`eval_1b_industrial.py`](eval_1b_industrial.py)（`1.1B` 从零预训练收敛对撞 + `TinyLlama-1.1B` 保频减参手术在 `ARC-Easy / HellaSwag / WinoGrande / PIQA / 4K 捞针` 上的标准榜单对比）。
 
 ---
 
 ## 四、 快速上手
 
 ```bash
-# 1. 运行 8 维全栈审计（fp64 教科书等价 + 严格因果零泄漏 + 有状态 EPRKVCache + CUDA FlexAttention）
+# 1. 运行 9 维全栈审计（fp64 教科书等价 + 因果零泄漏 + 环形/分页 PagedKVCache + HF 封装 + CUDA 审计）
 python3 audit_all.py
 
 # 2. 训练 6M 推荐旗舰版（EPR + Mass-Elastic RBF）与原生 Llama 2 对照
 python3 train.py config/train_wikitext2_colab_scale.py --out_dir=out-6m-base --use_epr=False
 python3 train.py config/train_wikitext2_colab_scale.py --out_dir=out-6m-epr-elastic --use_epr=True --use_elastic_rbf=True
 
-# 3. 运行统一评测套件（384序列无稀释分段外推、200次捞针、反事实双键绑定、KV驱逐与OOD幻觉探针）
+# 3. 运行 6M 统一评测套件（384序列无稀释分段外推、200次捞针、反事实双键绑定、KV驱逐与OOD幻觉探针）
 python3 eval_extrapolation.py out-6m-base out-6m-epr-elastic --lengths=256,512,1024,2048
 python3 eval_needle.py out-6m-base out-6m-epr-elastic --distances=64,128,256,512,1024,1536
 python3 eval_associative_recall.py out-6m-base out-6m-epr-elastic
 python3 eval_kv_eviction.py out-6m-epr-elastic
 python3 eval_ood_hallucination.py out-6m-base out-6m-epr-elastic
+
+# 4. v3.0 工业化与 1.1B 标准榜单套件（需 CUDA GPU）
+python3 bench_paged_and_sparse.py
+python3 eval_1b_industrial.py
 ```
 
 ---
