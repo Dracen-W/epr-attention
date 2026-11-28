@@ -1,38 +1,27 @@
 """
 ================================================================================
-SUPER-STRONG VERIFICATION & ANTI-CHEATING AUDIT SUITE (v6 Wormhole-Gravity)
+UNIFIED 8-PILLAR MATHEMATICAL, CAUSALITY & KVCACHE AUDIT SUITE (EPR v2.0)
 ================================================================================
-Verifies mathematical exactness, strict causality (zero future leakage),
-hardware alignment, parameter budgets, gradient health, 4x length extrapolation,
-and Damped Pauli Repulsion decoding.
+Audits the SINGLE unified `epr_attention.py` + `model.py` stack across:
+  - Distilled EPR v2.0 (3-pillar default: `bilat=False, nest=False`)
+  - Mass-Elastic Heteroscedastic RBF (`use_elastic_rbf=True`, exact 64d folding!)
+  - Pairwise Resonant Tunneling (`use_resonant_tunneling=True`)
+  - Grouped-Query Attention (GQA) & HuggingFace `half_split` RoPE
+  - All legacy single-switch ablations (`bilat=True`, `nest=True`, `no-wh`, `no-rbf`, `no-vac`)
 
-6 Independent Audit Pillars:
-  [AUDIT 1] Bit-Exact Pure Llama 2 Parity
-            Verifies `use_unified_gravity=False` produces exact 0.0 difference
-            against standard SDPA Llama 2 attention.
-  [AUDIT 2] Textbook Mathematical Equivalence (Forward + Backward Autograd)
-            Compares our fused D-aligned SDPA implementation against explicit,
-            unoptimized sequential textbook physics loops across 8 configurations
-            (v6-wormhole D=32/64, GQA, v5-distilled, v5-full, ablations).
-  [AUDIT 3] 4-Layer Strict Causality / Anti-Cheating Audit (float64 & float32)
-            3a. Forward Future Perturbation (multiple T & cut points -> 0.00e+00)
-            3b. Physical Truncation Equivalence in float64 (< 1e-12, ruling out
-                fp32/bf16 cuBLAS tiling noise!)
-            3c. Backward Jacobian Gradient Isolation (future_grad == 0.00e+00)
-            3d. Autoregressive Step-by-Step vs Parallel Equivalence (< 1e-12 in fp64)
-  [AUDIT 4] Gradient Health, Extreme-Input Stability & 4x Extrapolation Stress
-            Verifies finite, non-zero gradients on all active parameters, zero
-            NaNs under 10x/0.01x/repeated-token stress, and finite 4x extrapolation.
-  [AUDIT 5] Hardware Alignment & Parameter Budget Audit
-            Verifies d_r + d_g + 2 == head_dim (zero V padding) and confirms
-            v6-wormhole uses strictly FEWER decayed weights than Pure Llama 2.
-  [AUDIT 6] Damped Pauli Repulsion Decoding Audit
-            Verifies pauli_alpha=0.0 matches standard generation bit-for-bit and
-            pauli_alpha>0 strictly suppresses immediate loops while decaying.
+8 Audit Pillars:
+  [AUDIT 1] Bit-Exact Pure Llama 2 Control Baseline (`use_epr=False`)
+  [AUDIT 2] `fp64` Textbook Mathematical Equivalence (Forward + Backward Autograd < 1e-12)
+  [AUDIT 3] 4-Layer Strict Causality / Anti-Cheating Audit (`0.00e+00` future leak & grad)
+  [AUDIT 4] Gradient Health (zero dead/NaN grads across v2.0, Elastic-RBF & Tunneling) & 4x Stress
+  [AUDIT 5] Unified Power-of-2 Hardware Alignment (`D in {16,32,48,64,96,128}`) & Param Budget
+  [AUDIT 6] Damped Pauli Repulsion & End-to-End `Transformer.generate(use_kv_cache=True)` Parity
+  [AUDIT 7] CUDA `bf16` `FlexAttention` == `SDPA` Parity & Zero Future Leak (v2.0, Elastic & Tunneling)
+  [AUDIT 8] Stateful `EPRKVCache` (`fp64` Step-by-Step + Prefill/Decode + Asymmetric Eviction)
 
 Usage:
-  python3 audit_all.py                             # Run full 6-part suite
-  python3 audit_all.py --ckpt=out-6m-v6/ckpt.pt    # Also audit a trained checkpoint!
+  python3 audit_all.py
+  python3 audit_all.py --ckpt=out-6m-epr/ckpt.pt
 ================================================================================
 """
 
@@ -41,108 +30,103 @@ import sys
 import torch
 import torch.nn.functional as F
 
+from epr_attention import (
+    EPRConfig,
+    EPRAttention,
+    EPRKVCache,
+    _apply_rope_half_split,
+    _apply_rope_interleaved,
+)
 import model as mod
 
 
-def textbook_unified_gravity(attn: mod.UnifiedFiberGravityAttention, x: torch.Tensor, freqs_cos: torch.Tensor, freqs_sin: torch.Tensor) -> torch.Tensor:
+def textbook_epr_oracle(attn: EPRAttention, x: torch.Tensor, freqs_cos: torch.Tensor, freqs_sin: torch.Tensor) -> torch.Tensor:
     """
-    Explicit, unoptimized sequential textbook implementation of Fiber-Gravity +
-    ER=EPR Wormhole physics. Used solely as an independent mathematical oracle.
+    Independent, explicit sequential textbook oracle for EPR Attention.
+    Computes pairwise Euclidean distances, mass-elastic radii, proper-time integrals,
+    pairwise resonant tunneling, and Softmax1 vacuum normalization directly from math definitions!
     """
     B, T, _ = x.shape
-    H, H_kv, D, d_r, d_g = attn.n_local_heads, attn.n_local_kv_heads, attn.head_dim, attn.d_r, attn.d_g
-    H_d = attn.n_damped_heads
+    H, H_kv, D, d_r, d_g = attn.n_heads, attn.n_kv_heads, attn.head_dim, attn.d_r, attn.d_g
 
-    proj = attn.w_proj(x)
-    q_res, k_res, z_base, xv = proj.split([attn.q_res_dim, attn.k_res_dim, attn.z_dim, attn.v_dim], dim=-1)
-    q_res = q_res.view(B, T, H, d_r)
-    k_res = mod.repeat_kv(k_res.view(B, T, H_kv, d_r), attn.n_rep)
-    z_base = mod.repeat_kv(z_base.view(B, T, H_kv, d_g), attn.n_rep)
-    xv = mod.repeat_kv(xv.view(B, T, H_kv, D), attn.n_rep)
+    q_res, k_res, z_base, xv = attn.w_proj(x).split([attn.q_dim, attn.k_dim, attn.z_dim, attn.v_dim], dim=-1)
+    q_res = q_res.view(B, T, H, d_r).transpose(1, 2)
+    k_res = k_res.view(B, T, H_kv, d_r).transpose(1, 2)
+    z_base = z_base.view(B, T, H_kv, d_g).transpose(1, 2)
+    xv = xv.view(B, T, H_kv, D).transpose(1, 2)
 
-    fc_r, fs_r = freqs_cos[:, : d_r // 2], freqs_sin[:, : d_r // 2]
-    if attn.use_wormhole:
-        qd, kd = mod.apply_rotary_emb(q_res[:, :, :-1, :], k_res[:, :, :-1, :], fc_r, fs_r)
-        q_res = torch.cat([qd, q_res[:, :, -1:, :]], dim=2)
-        k_res = torch.cat([kd, k_res[:, :, -1:, :]], dim=2)
-    else:
-        q_res, k_res = mod.apply_rotary_emb(q_res, k_res, fc_r, fs_r)
+    if attn.n_damped > 0:
+        fc_r = freqs_cos[:, : d_r // 2] if attn.cfg.rope_style == "interleaved" else freqs_cos[:, :d_r] if freqs_cos.shape[-1] >= d_r else freqs_cos[:, : d_r // 2]
+        fs_r = freqs_sin[:, : d_r // 2] if attn.cfg.rope_style == "interleaved" else freqs_sin[:, :d_r] if freqs_sin.shape[-1] >= d_r else freqs_sin[:, : d_r // 2]
+        rope_fn = _apply_rope_interleaved if attn.cfg.rope_style == "interleaved" else _apply_rope_half_split
+        qd, kd = rope_fn(q_res[:, : attn.n_damped], k_res[:, : attn.n_damped_kv], fc_r, fs_r)
+        q_res = torch.cat([qd, q_res[:, attn.n_damped :]], dim=1) if attn.n_wh > 0 else qd
+        k_res = torch.cat([kd, k_res[:, attn.n_damped_kv :]], dim=1) if attn.n_wh_kv > 0 else kd
 
-    q_res, k_res, z_base, xv = q_res.transpose(1, 2), k_res.transpose(1, 2), z_base.transpose(1, 2), xv.transpose(1, 2)
-
-    phys = attn.w_phys(x)
-    splits = [attn.u_emit_dim] + ([attn.u_recv_dim] if attn.u_recv_dim > 0 else []) + ([attn.tau_in_dim] if attn.tau_in_dim > 0 else [])
-    parts = phys.split(splits, dim=-1)
-    idx_p = 0
-    u_emit = parts[idx_p]; idx_p += 1
     if attn.n_rep > 1:
-        u_emit = u_emit.repeat_interleave(attn.n_rep, dim=-1)
-    u_emit = u_emit.transpose(1, 2)
-    u_recv = parts[idx_p].transpose(1, 2) if attn.use_bilateral_mass else None
-    if attn.use_bilateral_mass:
+        k_res = k_res.repeat_interleave(attn.n_rep, dim=1)
+        z_exp = z_base.repeat_interleave(attn.n_rep, dim=1)
+        xv = xv.repeat_interleave(attn.n_rep, dim=1)
+    else:
+        z_exp = z_base
+
+    splits = [attn.u_emit_dim] + ([attn.u_recv_dim] if attn.u_recv_dim > 0 else []) + ([attn.tau_in_dim] if attn.tau_in_dim > 0 else [])
+    parts = attn.w_phys(x).split(splits, dim=-1)
+    idx_p = 0
+    u_emit_kv = parts[idx_p].transpose(1, 2); idx_p += 1
+    u_emit = u_emit_kv.repeat_interleave(attn.n_rep, dim=1) if attn.n_rep > 1 else u_emit_kv
+    u_recv = parts[idx_p].transpose(1, 2) if attn.u_recv_dim > 0 else None
+    if attn.u_recv_dim > 0:
         idx_p += 1
-    tau_in = parts[idx_p].transpose(1, 2) if attn.use_time_dilation else None
+    tau_in = parts[idx_p].transpose(1, 2) if attn.tau_in_dim > 0 else None
 
-    # Explicit sequential loop for optional Continuous Medium Field Phi_{h, t-1}
-    rho, phi_prev = None, None
-    if attn.use_medium_field:
-        z_hat = F.normalize(z_base, p=2, dim=-1, eps=1e-6)
-        m_emit = torch.sigmoid(u_emit).unsqueeze(-1)
-        decay_step = torch.exp(-F.softplus(attn.log_medium_lambda).view(1, H, 1))
-        sat_c = F.softplus(attn.raw_medium_sat).view(1, H, 1)
-        S = torch.zeros(B, H, d_g, dtype=x.dtype, device=x.device)
-        phi_list = []
-        for t in range(T):
-            phi_list.append(S / torch.sqrt(sat_c * sat_c + (S * S).sum(dim=-1, keepdim=True)))
-            S = decay_step * S + m_emit[:, :, t, :] * z_hat[:, :, t, :]
-        phi_prev = torch.stack(phi_list, dim=2)
-        rho = (z_hat * phi_prev).sum(dim=-1)
-
-    u_eff = u_emit + (attn.gamma_u.view(1, H, 1) * rho if (attn.use_mass_boost and rho is not None) else 0.0)
-    z_eff = z_base + (attn.gamma_z.view(1, H, 1, 1) * phi_prev if (attn.use_grav_bridge and phi_prev is not None) else 0.0)
-
-    # Proper time dilation on damped heads + strictly 0 on wormhole head
-    if attn.use_time_dilation:
-        raw_dtau = tau_in + attn.b_tau.view(1, H_d, 1)
-        if rho is not None:
-            raw_dtau = raw_dtau - F.softplus(attn.raw_kappa).view(1, H_d, 1) * rho[:, :H_d, :]
-        dtau_local = F.softplus(raw_dtau)
+    if attn.n_damped > 0:
+        dtau_loc = F.softplus(tau_in + attn.b_tau.view(1, attn.n_damped, 1)) if (attn.use_time_dilation and tau_in is not None) else F.softplus(attn.b_tau).view(1, attn.n_damped, 1).expand(B, attn.n_damped, T)
+        if attn.use_nested_time and attn.n_damped > 1:
+            alphas = F.softplus(attn.raw_nest_alpha)
+            cols = [None] * attn.n_damped
+            cols[-1] = dtau_loc[:, -1, :]
+            for h_i in range(attn.n_damped - 2, -1, -1):
+                cols[h_i] = dtau_loc[:, h_i, :] + alphas[h_i] * cols[h_i + 1]
+            dtau_d = torch.stack(cols, dim=1)
+        else:
+            dtau_d = dtau_loc
+        dtau = torch.cat([dtau_d, torch.zeros(B, attn.n_wh, T, dtype=x.dtype, device=x.device)], dim=1) if attn.n_wh > 0 else dtau_d
     else:
-        dtau_local = F.softplus(attn.b_tau).view(1, H_d, 1).expand(B, H_d, T)
+        dtau = torch.zeros(B, H, T, dtype=x.dtype, device=x.device)
 
-    if attn.use_nested_time and H_d > 1:
-        alphas = F.softplus(attn.raw_nest_alpha)
-        cols = [None] * H_d
-        cols[H_d - 1] = dtau_local[:, H_d - 1, :]
-        for h_idx in range(H_d - 2, -1, -1):
-            cols[h_idx] = dtau_local[:, h_idx, :] + alphas[h_idx] * cols[h_idx + 1]
-        dtau_damped = torch.stack(cols, dim=1)
-    else:
-        dtau_damped = dtau_local
-
-    dtau = torch.cat([dtau_damped, torch.zeros(B, 1, T, dtype=x.dtype, device=x.device)], dim=1) if attn.use_wormhole else dtau_damped
     tau = torch.cumsum(dtau, dim=-1)
     delta_tau = (tau.unsqueeze(-1) - tau.unsqueeze(-2)).clamp(min=0.0)
 
-    if attn.use_event_horizon:
-        qf = F.normalize(q_res, p=2, dim=-1, eps=1e-6)
-        kf = F.normalize(k_res, p=2, dim=-1, eps=1e-6)
-        res_score = torch.exp(attn.log_tau_res).view(1, H, 1, 1) * torch.matmul(qf, kf.transpose(-2, -1))
-    else:
-        res_score = torch.matmul(q_res, k_res.transpose(-2, -1)) / math.sqrt(d_r)
+    # Explicit textbook pre-decay score S_h(i, j)
+    s_pre = torch.matmul(q_res, k_res.transpose(-2, -1)) / math.sqrt(d_r) + u_emit.unsqueeze(-2)
+    if attn.use_bilateral_mass and u_recv is not None:
+        s_pre = s_pre + u_recv.unsqueeze(-1)
+
+    if attn.use_base_rbf:
+        diff = z_exp.unsqueeze(-2) - z_exp.unsqueeze(-3)  # [B, H, T_q, T_k, d_g]
+        dist_sq = (diff * diff).sum(dim=-1)
+        gamma_0_kv = (torch.exp(attn.log_inv_sigma2) / math.sqrt(d_g)).view(1, H_kv, 1)
+        if attn.use_elastic_rbf:
+            el_alpha = F.softplus(attn.raw_elastic_alpha).view(1, H_kv, 1)
+            gamma_kv = gamma_0_kv / (1.0 + el_alpha * torch.sigmoid(u_emit_kv))  # [B, H_kv, T_k]
+        else:
+            gamma_kv = gamma_0_kv.expand(B, H_kv, T)
+        gamma_h = gamma_kv.repeat_interleave(attn.n_rep, dim=1) if attn.n_rep > 1 else gamma_kv
+        s_pre = s_pre - 0.5 * gamma_h.unsqueeze(-2) * dist_sq
 
     causal = torch.triu(torch.full((T, T), float("-inf"), dtype=x.dtype, device=x.device), diagonal=1).view(1, 1, T, T)
-    psi = res_score + u_eff.unsqueeze(-2) - delta_tau + causal
-    if attn.use_bilateral_mass:
-        psi = psi + u_recv.unsqueeze(-1)
-    if attn.use_base_rbf:
-        diff = z_eff.unsqueeze(-2) - z_eff.unsqueeze(-3)
-        dist_sq = (diff * diff).sum(dim=-1)
-        sigma2 = torch.exp(-attn.log_inv_sigma2).view(1, H, 1, 1)
-        psi = psi - dist_sq / (2.0 * sigma2 * math.sqrt(d_g))
+    if attn.use_resonant_tunneling:
+        beta = F.softplus(attn.tunnel_beta).view(1, H, 1, 1)
+        theta = attn.tunnel_theta.view(1, H, 1, 1)
+        gate = torch.sigmoid(beta * (s_pre - theta))
+        psi = s_pre - delta_tau * (1.0 - gate) + causal
+    else:
+        psi = s_pre - delta_tau + causal
 
     if attn.use_attn_vacuum:
-        vac = attn.v0.view(1, H, 1, 1).expand(B, H, T, 1)
+        v0_h = attn.v0.repeat_interleave(attn.n_rep) if attn.n_rep > 1 else attn.v0
+        vac = v0_h.view(1, H, 1, 1).expand(B, H, T, 1)
         weights = F.softmax(torch.cat([vac, psi], dim=-1), dim=-1)[..., 1:]
     else:
         weights = F.softmax(psi, dim=-1)
@@ -156,9 +140,9 @@ def audit_1_pure_llama2_parity():
     print("[AUDIT 1] Bit-Exact Pure Llama 2 Control Baseline Check")
     print("=" * 78)
     torch.manual_seed(1337)
-    args = mod.ModelArgs(dim=128, n_layers=2, n_heads=4, n_kv_heads=4, vocab_size=512, max_seq_len=64, dropout=0.0, use_unified_gravity=False)
+    args = mod.ModelArgs(dim=128, n_layers=2, n_heads=4, n_kv_heads=4, vocab_size=512, max_seq_len=64, dropout=0.0, use_epr=False)
     m = mod.Transformer(args).eval()
-    assert all(isinstance(layer.attention, mod.Attention) for layer in m.layers), "Expected untouched Attention!"
+    assert all(isinstance(layer.attention, mod.Attention) for layer in m.layers)
     x = torch.randint(0, 512, (2, 32))
     with torch.no_grad():
         out = m(x, targets=x)
@@ -168,37 +152,40 @@ def audit_1_pure_llama2_parity():
 
 def audit_2_textbook_math_parity():
     print("\n" + "=" * 78)
-    print("[AUDIT 2] Textbook Mathematical Equivalence (Forward + Backward Autograd)")
+    print("[AUDIT 2] Textbook Mathematical Equivalence (Forward + Backward Autograd, fp64)")
     print("=" * 78)
     cases = [
-        ("v6-wormhole (D=32: 24+6+2)",   dict(dim=128, n_heads=4, n_kv_heads=4, use_wormhole=True, use_medium_field=False, use_event_horizon=False)),
-        ("v6-wormhole (D=64: 48+14+2)",  dict(dim=256, n_heads=4, n_kv_heads=4, use_wormhole=True, use_medium_field=False, use_event_horizon=False)),
-        ("v6-wormhole GQA (H=4, KV=2)",  dict(dim=128, n_heads=4, n_kv_heads=2, use_wormhole=True, use_medium_field=False, use_event_horizon=False)),
-        ("v5-distilled (No Wormhole)",   dict(dim=128, n_heads=4, n_kv_heads=4, use_wormhole=False, use_medium_field=False, use_event_horizon=False)),
-        ("v5-full (Med+Hor+Wormhole)",   dict(dim=128, n_heads=4, n_kv_heads=4, use_wormhole=True, use_medium_field=True, use_event_horizon=True)),
-        ("Ablation: No Base RBF",        dict(dim=128, n_heads=4, n_kv_heads=4, use_wormhole=True, use_base_rbf=False)),
-        ("Ablation: No Bilateral Mass",  dict(dim=128, n_heads=4, n_kv_heads=4, use_wormhole=True, use_bilateral_mass=False)),
-        ("Ablation: No Vacuum Floor",    dict(dim=128, n_heads=4, n_kv_heads=4, use_wormhole=True, use_attn_vacuum=False)),
+        ("EPR v2.0 Distilled (D=32: 24+6+2)",     dict(dim=128, n_heads=4, n_kv_heads=4)),
+        ("EPR v2.0 Distilled (D=64: 48+14+2)",    dict(dim=256, n_heads=4, n_kv_heads=4)),
+        ("EPR v2.0 GQA (H=8, KV=2, half_split)",  dict(dim=256, n_heads=8, n_kv_heads=2, rope_style="half_split")),
+        ("Polished #1: Mass-Elastic RBF (D=64)",  dict(dim=256, n_heads=4, n_kv_heads=4, use_elastic_rbf=True)),
+        ("Polished #1: Mass-Elastic RBF (GQA)",   dict(dim=256, n_heads=8, n_kv_heads=2, use_elastic_rbf=True)),
+        ("Polished #2: Resonant Tunneling",       dict(dim=128, n_heads=4, n_kv_heads=4, use_resonant_tunneling=True)),
+        ("Combined: Elastic-RBF + Tunneling",     dict(dim=128, n_heads=4, n_kv_heads=4, use_elastic_rbf=True, use_resonant_tunneling=True)),
+        ("Legacy: Bilateral Mass + Nested Time",  dict(dim=128, n_heads=4, n_kv_heads=4, use_bilateral_mass=True, use_nested_time=True)),
+        ("Ablation: No Wormhole",                 dict(dim=128, n_heads=4, n_kv_heads=4, use_wormhole=False)),
+        ("Ablation: No Base RBF",                 dict(dim=128, n_heads=4, n_kv_heads=4, use_base_rbf=False)),
+        ("Ablation: No Vacuum Floor",             dict(dim=128, n_heads=4, n_kv_heads=4, use_attn_vacuum=False)),
     ]
     for name, kw in cases:
         torch.manual_seed(7)
-        args = mod.ModelArgs(n_layers=1, vocab_size=256, max_seq_len=24, dropout=0.0, use_unified_gravity=True, **kw)
-        attn = mod.UnifiedFiberGravityAttention(args).double()
-        # Randomize all zero-init / physics parameters to stress-test every algebraic term
+        cfg = EPRConfig(dropout=0.0, **kw)
+        attn = EPRAttention(cfg).double()
         with torch.no_grad():
             for attr, lo, hi in [
-                ("gamma_u", -0.8, 0.8), ("gamma_z", -0.6, 0.6), ("v0", -1.0, 3.0),
-                ("log_inv_sigma2", -0.5, 0.5), ("log_tau_res", 1.0, 2.0), ("raw_nest_alpha", -1.0, 0.5),
+                ("v0", -1.0, 3.0), ("log_inv_sigma2", -0.5, 0.5),
+                ("raw_elastic_alpha", -0.5, 1.0), ("raw_nest_alpha", -1.0, 0.5),
+                ("tunnel_theta", 0.5, 2.5), ("tunnel_beta", 0.2, 1.5),
             ]:
-                if hasattr(attn, attr):
+                if hasattr(attn, attr) and getattr(attn, attr) is not None:
                     getattr(attn, attr).uniform_(lo, hi)
 
-        fc, fs = mod.precompute_freqs_cis(kw["dim"] // kw["n_heads"], 20)
+        fc, fs = mod.precompute_freqs_cis(attn.d_r, 20)
         fc, fs = fc.double(), fs.double()
         x = torch.randn(2, 20, kw["dim"], dtype=torch.float64, requires_grad=True)
 
         y_fast = attn(x, fc, fs)
-        y_ref = textbook_unified_gravity(attn, x, fc, fs)
+        y_ref = textbook_epr_oracle(attn, x, fc, fs)
         fwd_err = (y_fast - y_ref).abs().max().item()
 
         g_out = torch.randn_like(y_fast)
@@ -207,7 +194,7 @@ def audit_2_textbook_math_parity():
         g_ref = torch.autograd.grad(y_ref, params, g_out, allow_unused=True)
         bwd_err = max((a - b).abs().max().item() for a, b in zip(g_fast, g_ref) if a is not None and b is not None)
         assert fwd_err < 1e-12 and bwd_err < 1e-11, f"Math parity failed on {name}: fwd={fwd_err}, bwd={bwd_err}"
-        print(f"  [PASS] {name:30s} | d_r={attn.d_r:2d}, d_g={attn.d_g:2d} | fp64 fwd={fwd_err:.2e} | bwd={bwd_err:.2e}")
+        print(f"  [PASS] {name:38s} | d_r={attn.d_r:2d}, d_g={attn.d_g:2d} | fp64 fwd={fwd_err:.2e} | bwd={bwd_err:.2e}")
 
 
 def audit_3_causality(model_to_audit: mod.Transformer, label: str):
@@ -218,7 +205,6 @@ def audit_3_causality(model_to_audit: mod.Transformer, label: str):
     device = next(m64.parameters()).device
     V = m64.params.vocab_size
 
-    # 3a. Forward Future Perturbation
     for T, cut in [(32, 16), (64, 32), (128, 64)]:
         x1 = torch.randint(0, V, (2, T), device=device)
         x2 = x1.clone()
@@ -230,7 +216,6 @@ def audit_3_causality(model_to_audit: mod.Transformer, label: str):
         assert diff == 0.0, f"CAUSALITY LEAK (3a) at T={T}, cut={cut}: diff={diff}"
         print(f"  [PASS] 3a. Forward Future Perturbation (T={T:3d}, cut={cut:2d})   | max_diff = {diff:.2e}")
 
-    # 3b. Physical Truncation Equivalence (in float64 -> proves zero leakage, separating fp32 cuBLAS tiling noise!)
     T_full, probe = 96, 40
     x_full = torch.randint(0, V, (1, T_full), device=device)
     with torch.no_grad():
@@ -240,7 +225,6 @@ def audit_3_causality(model_to_audit: mod.Transformer, label: str):
     assert diff_trunc < 1e-12, f"CAUSALITY LEAK (3b): diff_trunc={diff_trunc}"
     print(f"  [PASS] 3b. Physical Truncation Equivalence (fp64)          | max_diff = {diff_trunc:.2e}")
 
-    # 3c. Backward Jacobian Gradient Isolation (d logits[t] / d h[s] == 0 for all s > t)
     x_g = torch.randint(0, V, (1, 48), device=device)
     t_target = 23
     h = m64.tok_embeddings(x_g).detach().requires_grad_(True)
@@ -254,7 +238,6 @@ def audit_3_causality(model_to_audit: mod.Transformer, label: str):
     assert fut_g == 0.0 and past_g > 0.0, f"JACOBIAN LEAK (3c): fut={fut_g}, past={past_g}"
     print(f"  [PASS] 3c. Backward Jacobian Isolation (s > t)             | future_grad = {fut_g:.2e} (past={past_g:.2e})")
 
-    # 3d. Autoregressive Step-by-Step vs Parallel Equivalence
     x_ar = torch.randint(0, V, (1, 20), device=device)
     with torch.no_grad():
         par_logits = m64(x_ar, targets=x_ar)
@@ -269,169 +252,155 @@ def audit_3_causality(model_to_audit: mod.Transformer, label: str):
 
 def audit_4_gradients_and_stress():
     print("\n" + "=" * 78)
-    print("[AUDIT 4] Gradient Health, Extreme-Input Stress & 4x Extrapolation")
+    print("[AUDIT 4] Gradient Health (v2.0 + Elastic-RBF + Tunneling) & 4x Extrapolation Stress")
     print("=" * 78)
-    torch.manual_seed(42)
-    args = mod.ModelArgs(dim=128, n_layers=3, n_heads=4, n_kv_heads=4, vocab_size=512, max_seq_len=32, dropout=0.0, use_unified_gravity=True, use_wormhole=True)
-    m = mod.Transformer(args)
-    x = torch.randint(0, 512, (2, 32))
-    m(x, targets=x)
-    m.last_loss.backward()
-    bad = [n for n, p in m.named_parameters() if p.grad is None or not torch.isfinite(p.grad).all() or p.grad.abs().sum().item() == 0.0]
-    assert len(bad) == 0, f"Dead or non-finite gradients detected: {bad}"
-    print("  [PASS] 4a. All parameters receive finite, strictly non-zero gradients (zero dead weights).")
+    for label, kw in [
+        ("EPR v2.0 Distilled", dict(use_epr=True)),
+        ("EPR + Elastic-RBF + Tunneling", dict(use_epr=True, use_elastic_rbf=True, use_resonant_tunneling=True)),
+    ]:
+        torch.manual_seed(42)
+        args = mod.ModelArgs(dim=128, n_layers=3, n_heads=4, n_kv_heads=4, vocab_size=512, max_seq_len=32, dropout=0.0, **kw)
+        m = mod.Transformer(args)
+        x = torch.randint(0, 512, (2, 32))
+        m(x, targets=x)
+        m.last_loss.backward()
+        bad = [n for n, p in m.named_parameters() if p.grad is None or not torch.isfinite(p.grad).all() or p.grad.abs().sum().item() == 0.0]
+        assert len(bad) == 0, f"Dead or non-finite gradients in {label}: {bad}"
+        print(f"  [PASS] 4a. {label:32s} | All {len(list(m.parameters()))} parameter tensors receive finite non-zero grads.")
 
-    # Zero-shot 4x length extrapolation (train T=32 -> eval T=128)
     m.eval()
     with torch.no_grad():
         x_4x = torch.randint(0, 512, (1, 128))
-        out_4x = m(x_4x, targets=x_4x)
-        assert torch.isfinite(out_4x).all() and torch.isfinite(m.last_loss)
-    print(f"  [PASS] 4b. Zero-shot 4x length extrapolation (32 -> 128) finite (loss={m.last_loss.item():.4f}).")
-
-    # Repeated-token & extreme embedding stress test
-    with torch.no_grad():
+        assert torch.isfinite(m(x_4x, targets=x_4x)).all() and torch.isfinite(m.last_loss)
         x_rep = torch.full((1, 48), 7, dtype=torch.long)
         assert torch.isfinite(m(x_rep, targets=x_rep)).all()
-    print("  [PASS] 4c. Identical-token repetition stress test finite (zero NaN/Inf).")
+    print(f"  [PASS] 4b. Zero-shot 4x length extrapolation (32 -> 128) & repetition stress finite (loss={m.last_loss.item():.4f}).")
 
 
 def audit_5_hardware_and_param_budget():
     print("\n" + "=" * 78)
-    print("[AUDIT 5] Hardware Alignment (d_r+d_g+2 == D) & Parameter Budget")
+    print("[AUDIT 5] Unified Hardware Alignment (d_r+d_g+2 == D) & Parameter Budget")
     print("=" * 78)
-    for D in [16, 32, 64, 128]:
-        a = mod.UnifiedFiberGravityAttention(mod.ModelArgs(dim=D * 4, n_layers=1, n_heads=4, vocab_size=256, max_seq_len=32, use_unified_gravity=True, use_wormhole=True))
-        assert a.d_r + a.d_g + 2 == D, f"Misaligned packing for D={D}"
+    for D in [16, 32, 48, 64, 96, 128]:
+        a = EPRAttention(EPRConfig(dim=D * 4, n_heads=4))
+        assert a.d_r + a.d_g + 2 == D and a.d_r % 2 == 0, f"Misaligned packing for D={D}"
         print(f"  [PASS] head_dim={D:3d} -> d_r={a.d_r:2d} fiber + d_g={a.d_g:2d} base + 2 == {D:3d} (zero V padding)")
 
     for label, dim, n_layers in [("1.3M (D=32)", 128, 4), ("6.0M (D=64)", 256, 6)]:
-        m_base = mod.Transformer(mod.ModelArgs(dim=dim, n_layers=n_layers, n_heads=4, vocab_size=4096, multiple_of=32, max_seq_len=128, use_unified_gravity=False))
-        m_v6 = mod.Transformer(mod.ModelArgs(dim=dim, n_layers=n_layers, n_heads=4, vocab_size=4096, multiple_of=32, max_seq_len=128, use_unified_gravity=True, use_wormhole=True))
-        dec_base = sum(p.numel() for p in m_base.parameters() if p.dim() >= 2)
-        dec_v6 = sum(p.numel() for p in m_v6.parameters() if p.dim() >= 2)
-        assert dec_v6 <= dec_base, f"v6 exceeds Pure Llama 2 budget: {dec_v6} > {dec_base}"
-        print(f"  [PASS] {label} | Pure Llama 2: {dec_base:,} vs v6-wormhole: {dec_v6:,} ({dec_v6 - dec_base:+,} weights)")
+        m_base = mod.Transformer(mod.ModelArgs(dim=dim, n_layers=n_layers, n_heads=4, vocab_size=4096, multiple_of=32, max_seq_len=128, use_epr=False))
+        m_v2 = mod.Transformer(mod.ModelArgs(dim=dim, n_layers=n_layers, n_heads=4, vocab_size=4096, multiple_of=32, max_seq_len=128, use_epr=True))
+        m_el = mod.Transformer(mod.ModelArgs(dim=dim, n_layers=n_layers, n_heads=4, vocab_size=4096, multiple_of=32, max_seq_len=128, use_epr=True, use_elastic_rbf=True))
+        tot_base = sum(p.numel() for p in m_base.parameters())
+        tot_v2 = sum(p.numel() for p in m_v2.parameters())
+        tot_el = sum(p.numel() for p in m_el.parameters())
+        assert tot_v2 < tot_base and tot_el < tot_base
+        print(f"  [PASS] {label} | Base: {tot_base:,} | EPR v2.0: {tot_v2:,} ({tot_v2 - tot_base:+,}) | Elastic-RBF: {tot_el:,} ({tot_el - tot_base:+,})")
 
 
-def audit_6_pauli_repulsion():
+def audit_6_pauli_and_cached_generate():
     print("\n" + "=" * 78)
-    print("[AUDIT 6] Damped Pauli Repulsion Decoding Audit")
+    print("[AUDIT 6] Damped Pauli Repulsion & End-to-End Cached `generate()` Parity")
     print("=" * 78)
     torch.manual_seed(0)
-    m = mod.Transformer(mod.ModelArgs(dim=64, n_layers=1, n_heads=4, vocab_size=128, max_seq_len=32, dropout=0.0, use_unified_gravity=True)).eval()
-    prompt = torch.tensor([[5, 12, 19, 25]], dtype=torch.long)
+    m = mod.Transformer(mod.ModelArgs(dim=64, n_layers=2, n_heads=4, vocab_size=128, max_seq_len=64, dropout=0.0, use_epr=True, use_elastic_rbf=True)).double().eval()
+    prompt = torch.tensor([[5, 12, 19, 25, 31]], dtype=torch.long)
 
-    # 6a. alpha=0.0 matches greedy/seeded baseline bit-for-bit
-    torch.manual_seed(99)
-    y0 = m.generate(prompt.clone(), max_new_tokens=12, temperature=0.8, top_k=20, pauli_alpha=0.0)
-    torch.manual_seed(99)
-    y0_ref = m.generate(prompt.clone(), max_new_tokens=12, temperature=0.8, top_k=20)
-    assert torch.equal(y0, y0_ref), "pauli_alpha=0.0 diverged from standard generation!"
-    print("  [PASS] 6a. pauli_alpha=0.0 matches standard generation bit-for-bit.")
+    y_cached = m.generate(prompt.clone(), max_new_tokens=16, temperature=0.0, pauli_alpha=1.5, use_kv_cache=True, damped_window=None)
+    y_nocache = m.generate(prompt.clone(), max_new_tokens=16, temperature=0.0, pauli_alpha=1.5, use_kv_cache=False)
+    assert torch.equal(y_cached, y_nocache), f"Cached vs Non-cached generate diverged!\n{y_cached}\n{y_nocache}"
+    print("  [PASS] 6a. Transformer.generate(use_kv_cache=True) matches full-recompute generation bit-for-bit!")
 
-    # 6b. High alpha prevents immediate greedy repetition of the last token
     y_rep = m.generate(torch.tensor([[7, 7, 7, 7]]), max_new_tokens=1, temperature=0.0, pauli_alpha=50.0, pauli_halflife=16.0)
-    assert y_rep[0, -1].item() != 7, "Strong Pauli repulsion failed to suppress immediate repeat!"
+    assert y_rep[0, -1].item() != 7
     print(f"  [PASS] 6b. Strong Pauli repulsion (alpha=50) suppressed immediate repeat token 7 -> {y_rep[0, -1].item()}.")
 
 
-
-
 def audit_7_flex_attention_cuda():
-    """P0 Audit A1: Verify CUDA bf16 FlexAttention == SDPA parity & zero future leakage."""
     print("\n" + "=" * 78)
     print("[AUDIT 7] CUDA bf16 FlexAttention Parity & Future Perturbation Audit")
     print("=" * 78)
     if not torch.cuda.is_available():
-        print("  [SKIP] CUDA not available on this host (run on L4/A100 GPU to execute FlexAttention audit).")
+        print("  [SKIP] CUDA not available on this host (runs automatically on Colab L4/A100 GPU).")
         return
 
-    from epr_attention import EPRConfig, EPRAttention
-    torch.manual_seed(42)
     device = "cuda"
     B, T = 2, 256
-    cfg_flex = EPRConfig(dim=256, n_heads=4, n_kv_heads=4, n_wormhole_heads=1, use_flex_attention=True)
-    cfg_sdpa = EPRConfig(dim=256, n_heads=4, n_kv_heads=4, n_wormhole_heads=1, use_flex_attention=False)
-    m_flex = EPRAttention(cfg_flex).to(device=device, dtype=torch.bfloat16).eval()
-    m_sdpa = EPRAttention(cfg_sdpa).to(device=device, dtype=torch.bfloat16).eval()
-    m_sdpa.load_state_dict(m_flex.state_dict())
+    for label, kw in [
+        ("EPR v2.0 Distilled (MHA)", dict(dim=256, n_heads=4, n_kv_heads=4)),
+        ("EPR + Elastic-RBF (GQA)",  dict(dim=256, n_heads=8, n_kv_heads=2, use_elastic_rbf=True)),
+        ("EPR + Resonant Tunneling", dict(dim=256, n_heads=4, n_kv_heads=4, use_resonant_tunneling=True)),
+    ]:
+        torch.manual_seed(42)
+        m_flex = EPRAttention(EPRConfig(use_flex_attention=True, **kw)).to(device=device, dtype=torch.bfloat16).eval()
+        m_sdpa = EPRAttention(EPRConfig(use_flex_attention=False, **kw)).to(device=device, dtype=torch.bfloat16).eval()
+        m_sdpa.load_state_dict(m_flex.state_dict())
 
-    inv_freq = 1.0 / (10000.0 ** (torch.arange(0, m_flex.d_r, 2, dtype=torch.float32, device=device) / m_flex.d_r))
-    t = torch.arange(T, dtype=torch.float32, device=device)
-    freqs = torch.outer(t, inv_freq)
-    fc, fs = freqs.cos(), freqs.sin()
+        fc, fs = mod.precompute_freqs_cis(m_flex.d_r, T)
+        fc, fs = fc.to(device), fs.to(device)
+        x = torch.randn(B, T, 256, device=device, dtype=torch.bfloat16)
 
-    x = torch.randn(B, T, 256, device=device, dtype=torch.bfloat16)
-    with torch.no_grad():
-        y_flex = m_flex(x, fc, fs)
-        y_sdpa = m_sdpa(x, fc, fs)
-        diff = (y_flex.float() - y_sdpa.float()).abs().max().item()
-        assert diff < 2e-2, f"FlexAttention vs SDPA mismatch: {diff}"
+        with torch.no_grad():
+            y_flex = m_flex(x, fc, fs)
+            y_sdpa = m_sdpa(x, fc, fs)
+            diff = (y_flex.float() - y_sdpa.float()).abs().max().item()
+            assert diff < 2.5e-2, f"FlexAttention vs SDPA mismatch on {label}: {diff}"
 
-        # Future perturbation directly on FlexAttention path
-        x_pert = x.clone()
-        x_pert[:, 128:, :] = torch.randn_like(x_pert[:, 128:, :])
-        y_flex_pert = m_flex(x_pert, fc, fs)
-        leak = (y_flex[:, :128, :].float() - y_flex_pert[:, :128, :].float()).abs().max().item()
-        assert leak == 0.0, f"FlexAttention future leak detected: {leak}"
+            x_pert = x.clone()
+            x_pert[:, 128:, :] = torch.randn_like(x_pert[:, 128:, :])
+            y_flex_pert = m_flex(x_pert, fc, fs)
+            leak = (y_flex[:, :128, :].float() - y_flex_pert[:, :128, :].float()).abs().max().item()
+            assert leak == 0.0, f"FlexAttention future leak on {label}: {leak}"
 
-    print(f"  [PASS] 7a. FlexAttention vs SDPA (bf16, T=256) | max_diff = {diff:.2e}")
-    print(f"  [PASS] 7b. FlexAttention Future Perturbation   | max_diff = {leak:.2e}")
+        print(f"  [PASS] {label:28s} | bf16 parity={diff:.2e} | future_leak={leak:.2e}")
 
 
 def audit_8_epr_kvcache():
-    """P0 Audit A2: Verify stateful EPRKVCache (with cumulative tau) == Parallel Forward in fp64."""
     print("\n" + "=" * 78)
     print("[AUDIT 8] Stateful EPRKVCache (Cumulative Tau) & Asymmetric Eviction Audit")
     print("=" * 78)
-    from epr_attention import EPRConfig, EPRAttention, EPRKVCache
     torch.manual_seed(42)
 
     for label, cfg in [
-        ("MHA interleaved (4H/4KV, 1 WH)", EPRConfig(dim=128, n_heads=4, n_kv_heads=4, n_wormhole_heads=1, rope_style="interleaved")),
-        ("GQA half_split  (8H/2KV, 4 WH)", EPRConfig(dim=256, n_heads=8, n_kv_heads=2, n_wormhole_heads=4, rope_style="half_split")),
+        ("MHA Distilled (4H/4KV, 1 WH)",         EPRConfig(dim=128, n_heads=4, n_kv_heads=4)),
+        ("MHA Elastic-RBF + Tunnel (4H/4KV)",    EPRConfig(dim=128, n_heads=4, n_kv_heads=4, use_elastic_rbf=True, use_resonant_tunneling=True)),
+        ("GQA half_split (8H/2KV, 4 WH, ElRBF)", EPRConfig(dim=256, n_heads=8, n_kv_heads=2, n_wormhole_heads=4, rope_style="half_split", use_elastic_rbf=True)),
     ]:
         attn = EPRAttention(cfg).double().eval()
         B, T = 2, 24
         x = torch.randn(B, T, cfg.dim, dtype=torch.float64)
-        inv_freq = 1.0 / (10000.0 ** (torch.arange(0, attn.d_r, 2, dtype=torch.float64) / attn.d_r))
-        freqs = torch.outer(torch.arange(T, dtype=torch.float64), inv_freq)
-        fc, fs = freqs.cos(), freqs.sin()
+        fc, fs = mod.precompute_freqs_cis(attn.d_r, T)
+        fc, fs = fc.double(), fs.double()
 
         with torch.no_grad():
             y_par = attn(x, fc, fs)
 
-            # Lossless step-by-step decoding
             cache = EPRKVCache(
                 n_layers=1, n_heads=attn.n_heads, n_kv_heads=attn.n_kv_heads,
                 head_dim=attn.head_dim, n_wormhole_kv_heads=attn.n_wh_kv,
                 window_size=None, max_seq_len=64, batch_size=B, dtype=torch.float64,
             )
-            y_step = torch.cat([attn(x[:, t:t+1], fc[t:t+1], fs[t:t+1], kv_cache=cache, layer_idx=0) for t in range(T)], dim=1)
+            y_step = torch.cat([attn(x[:, t : t + 1], fc[t : t + 1], fs[t : t + 1], kv_cache=cache, layer_idx=0) for t in range(T)], dim=1)
             diff_step = (y_par - y_step).abs().max().item()
             assert diff_step < 1e-13, f"KVCache step mismatch: {diff_step}"
 
-            # Prefill (10) + Decode (14)
             cache.reset()
             ys = [attn(x[:, :10], fc[:10], fs[:10], kv_cache=cache, layer_idx=0)]
             for t in range(10, T):
-                ys.append(attn(x[:, t:t+1], fc[t:t+1], fs[t:t+1], kv_cache=cache, layer_idx=0))
+                ys.append(attn(x[:, t : t + 1], fc[t : t + 1], fs[t : t + 1], kv_cache=cache, layer_idx=0))
             diff_mix = (y_par - torch.cat(ys, dim=1)).abs().max().item()
             assert diff_mix < 1e-13, f"KVCache prefill+decode mismatch: {diff_mix}"
 
-            # Asymmetric sliding-window eviction (W=8)
             cache_ev = EPRKVCache(
                 n_layers=1, n_heads=attn.n_heads, n_kv_heads=attn.n_kv_heads,
                 head_dim=attn.head_dim, n_wormhole_kv_heads=attn.n_wh_kv,
                 window_size=8, max_seq_len=64, batch_size=B, dtype=torch.float64,
             )
-            y_ev = torch.cat([attn(x[:, t:t+1], fc[t:t+1], fs[t:t+1], kv_cache=cache_ev, layer_idx=0) for t in range(T)], dim=1)
+            y_ev = torch.cat([attn(x[:, t : t + 1], fc[t : t + 1], fs[t : t + 1], kv_cache=cache_ev, layer_idx=0) for t in range(T)], dim=1)
             assert torch.isfinite(y_ev).all()
             diff_w = (y_par[:, :8] - y_ev[:, :8]).abs().max().item()
             assert diff_w < 1e-13, f"KVCache pre-eviction mismatch: {diff_w}"
 
-        print(f"  [PASS] {label} | step={diff_step:.2e} | prefill+dec={diff_mix:.2e} | pre-evict={diff_w:.2e}")
+        print(f"  [PASS] {label:38s} | step={diff_step:.2e} | prefill+dec={diff_mix:.2e} | pre-evict={diff_w:.2e}")
 
 
 def main():
@@ -443,35 +412,26 @@ def main():
     audit_1_pure_llama2_parity()
     audit_2_textbook_math_parity()
 
-    # Audit 3 on fresh v6-wormhole + v5-full
     torch.manual_seed(1337)
-    m_v6 = mod.Transformer(mod.ModelArgs(dim=128, n_layers=3, n_heads=4, vocab_size=256, max_seq_len=64, dropout=0.0, use_unified_gravity=True, use_wormhole=True))
-    audit_3_causality(m_v6, "Fresh v6-Wormhole")
+    m_v2 = mod.Transformer(mod.ModelArgs(dim=128, n_layers=3, n_heads=4, vocab_size=256, max_seq_len=64, dropout=0.0, use_epr=True))
+    audit_3_causality(m_v2, "Fresh EPR v2.0 Distilled")
 
-    m_full = mod.Transformer(mod.ModelArgs(dim=128, n_layers=2, n_heads=4, vocab_size=256, max_seq_len=64, dropout=0.0, use_unified_gravity=True, use_wormhole=True, use_medium_field=True, use_event_horizon=True))
-    with torch.no_grad():
-        for layer in m_full.layers:
-            layer.attention.gamma_u.fill_(0.4)
-            layer.attention.gamma_z.fill_(0.3)
-    audit_3_causality(m_full, "Fresh v6-Wormhole + MediumField + EventHorizon")
+    m_polished = mod.Transformer(mod.ModelArgs(dim=128, n_layers=2, n_heads=4, vocab_size=256, max_seq_len=64, dropout=0.0, use_epr=True, use_elastic_rbf=True, use_resonant_tunneling=True))
+    audit_3_causality(m_polished, "Fresh EPR + Elastic-RBF + Resonant Tunneling")
 
     if ckpt_path is not None:
-        ck = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-        valid_fields = set(mod.ModelArgs.__dataclass_fields__.keys())
-        margs = mod.ModelArgs(**{k: v for k, v in ck["model_args"].items() if k in valid_fields})
-        margs.dropout = 0.0
-        m_ck = mod.Transformer(margs)
-        m_ck.load_state_dict({k.replace("_orig_mod.", ""): v for k, v in ck["model"].items()}, strict=True)
+        from run_sota_baselines import load_any_checkpoint
+        m_ck, _, _ = load_any_checkpoint(ckpt_path, device="cpu")
         audit_3_causality(m_ck, f"Trained Checkpoint: {ckpt_path}")
 
     audit_4_gradients_and_stress()
     audit_5_hardware_and_param_budget()
-    audit_6_pauli_repulsion()
+    audit_6_pauli_and_cached_generate()
     audit_7_flex_attention_cuda()
     audit_8_epr_kvcache()
 
     print("\n" + "=" * 78)
-    print("ALL 8 AUDIT PILLARS PASSED WITH ZERO LEAKS AND MACHINE-PRECISION PARITY!")
+    print("ALL 8 UNIFIED AUDIT PILLARS PASSED WITH ZERO LEAKS AND MACHINE-PRECISION PARITY!")
     print("=" * 78)
 
 

@@ -1,0 +1,674 @@
+{
+  "out-6m-base-s1337": {
+    "label": "Pure Llama 2 (RoPE)",
+    "median_step_ms": 35.7,
+    "trajectory": [
+      {
+        "step": 0,
+        "val_loss": 8.362,
+        "val_ppl": 4281.26,
+        "wall_sec": 11.0
+      },
+      {
+        "step": 250,
+        "val_loss": 5.0557,
+        "val_ppl": 156.92,
+        "wall_sec": 37.3
+      },
+      {
+        "step": 500,
+        "val_loss": 4.5028,
+        "val_ppl": 90.27,
+        "wall_sec": 46.5
+      },
+      {
+        "step": 750,
+        "val_loss": 4.2662,
+        "val_ppl": 71.25,
+        "wall_sec": 55.9
+      },
+      {
+        "step": 1000,
+        "val_loss": 4.1386,
+        "val_ppl": 62.71,
+        "wall_sec": 65.3
+      },
+      {
+        "step": 1250,
+        "val_loss": 4.0627,
+        "val_ppl": 58.13,
+        "wall_sec": 74.8
+      },
+      {
+        "step": 1500,
+        "val_loss": 4.0072,
+        "val_ppl": 54.99,
+        "wall_sec": 84.3
+      },
+      {
+        "step": 1750,
+        "val_loss": 3.9657,
+        "val_ppl": 52.76,
+        "wall_sec": 93.9
+      },
+      {
+        "step": 2000,
+        "val_loss": 3.9305,
+        "val_ppl": 50.93,
+        "wall_sec": 103.5
+      },
+      {
+        "step": 2250,
+        "val_loss": 3.9094,
+        "val_ppl": 49.87,
+        "wall_sec": 113.0
+      },
+      {
+        "step": 2500,
+        "val_loss": 3.8842,
+        "val_ppl": 48.63,
+        "wall_sec": 122.5
+      },
+      {
+        "step": 2750,
+        "val_loss": 3.8738,
+        "val_ppl": 48.13,
+        "wall_sec": 131.9
+      },
+      {
+        "step": 3000,
+        "val_loss": 3.8671,
+        "val_ppl": 47.8,
+        "wall_sec": 141.4
+      }
+    ]
+  },
+  "out-6m-alibi-s1337": {
+    "label": "ALiBi (Press et al., 2022)",
+    "median_step_ms": null,
+    "trajectory": [
+      {
+        "step": 0,
+        "val_loss": 8.3583,
+        "val_ppl": 4265.52,
+        "wall_sec": 14.8
+      },
+      {
+        "step": 250,
+        "val_loss": 5.0082,
+        "val_ppl": 149.64,
+        "wall_sec": 39.6
+      },
+      {
+        "step": 500,
+        "val_loss": 4.4349,
+        "val_ppl": 84.35,
+        "wall_sec": 51.6
+      },
+      {
+        "step": 750,
+        "val_loss": 4.2288,
+        "val_ppl": 68.63,
+        "wall_sec": 63.6
+      },
+      {
+        "step": 1000,
+        "val_loss": 4.1236,
+        "val_ppl": 61.78,
+        "wall_sec": 75.5
+      },
+      {
+        "step": 1250,
+        "val_loss": 4.0497,
+        "val_ppl": 57.38,
+        "wall_sec": 87.3
+      },
+      {
+        "step": 1500,
+        "val_loss": 3.9921,
+        "val_ppl": 54.17,
+        "wall_sec": 99.1
+      },
+      {
+        "step": 1750,
+        "val_loss": 3.931,
+        "val_ppl": 50.96,
+        "wall_sec": 110.8
+      },
+      {
+        "step": 2000,
+        "val_loss": 3.8988,
+        "val_ppl": 49.34,
+        "wall_sec": 122.6
+      },
+      {
+        "step": 2250,
+        "val_loss": 3.871,
+        "val_ppl": 47.99,
+        "wall_sec": 134.4
+      },
+      {
+        "step": 2500,
+        "val_loss": 3.8491,
+        "val_ppl": 46.95,
+        "wall_sec": 146.2
+      },
+      {
+        "step": 2750,
+        "val_loss": 3.8348,
+        "val_ppl": 46.28,
+        "wall_sec": 158.1
+      },
+      {
+        "step": 3000,
+        "val_loss": 3.8258,
+        "val_ppl": 45.87,
+        "wall_sec": 170.0
+      }
+    ]
+  },
+  "out-6m-fox-s1337": {
+    "label": "FoX (Forgetting Transformer, ICLR 2025)",
+    "median_step_ms": null,
+    "trajectory": [
+      {
+        "step": 0,
+        "val_loss": 8.3594,
+        "val_ppl": 4270.28,
+        "wall_sec": 21.9
+      },
+      {
+        "step": 250,
+        "val_loss": 5.028,
+        "val_ppl": 152.63,
+        "wall_sec": 57.3
+      },
+      {
+        "step": 500,
+        "val_loss": 4.4033,
+        "val_ppl": 81.72,
+        "wall_sec": 71.5
+      },
+      {
+        "step": 750,
+        "val_loss": 4.188,
+        "val_ppl": 65.89,
+        "wall_sec": 85.7
+      },
+      {
+        "step": 1000,
+        "val_loss": 4.085,
+        "val_ppl": 59.44,
+        "wall_sec": 99.7
+      },
+      {
+        "step": 1250,
+        "val_loss": 4.0053,
+        "val_ppl": 54.89,
+        "wall_sec": 113.7
+      },
+      {
+        "step": 1500,
+        "val_loss": 3.9405,
+        "val_ppl": 51.45,
+        "wall_sec": 127.7
+      },
+      {
+        "step": 1750,
+        "val_loss": 3.9094,
+        "val_ppl": 49.87,
+        "wall_sec": 141.7
+      },
+      {
+        "step": 2000,
+        "val_loss": 3.8672,
+        "val_ppl": 47.81,
+        "wall_sec": 155.8
+      },
+      {
+        "step": 2250,
+        "val_loss": 3.8415,
+        "val_ppl": 46.59,
+        "wall_sec": 169.8
+      },
+      {
+        "step": 2500,
+        "val_loss": 3.8207,
+        "val_ppl": 45.64,
+        "wall_sec": 183.9
+      },
+      {
+        "step": 2750,
+        "val_loss": 3.8055,
+        "val_ppl": 44.95,
+        "wall_sec": 198.0
+      },
+      {
+        "step": 3000,
+        "val_loss": 3.7959,
+        "val_ppl": 44.52,
+        "wall_sec": 212.1
+      }
+    ]
+  },
+  "out-6m-epr-v2-s1337": {
+    "label": "EPR v2.0 Distilled (Const RBF + 1 WH)",
+    "median_step_ms": 61.2,
+    "trajectory": [
+      {
+        "step": 0,
+        "val_loss": 8.3696,
+        "val_ppl": 4314.0,
+        "wall_sec": 19.6
+      },
+      {
+        "step": 250,
+        "val_loss": 4.9217,
+        "val_ppl": 137.24,
+        "wall_sec": 71.1
+      },
+      {
+        "step": 500,
+        "val_loss": 4.3272,
+        "val_ppl": 75.73,
+        "wall_sec": 87.3
+      },
+      {
+        "step": 750,
+        "val_loss": 4.079,
+        "val_ppl": 59.09,
+        "wall_sec": 103.3
+      },
+      {
+        "step": 1000,
+        "val_loss": 3.9345,
+        "val_ppl": 51.14,
+        "wall_sec": 119.3
+      },
+      {
+        "step": 1250,
+        "val_loss": 3.8338,
+        "val_ppl": 46.24,
+        "wall_sec": 135.3
+      },
+      {
+        "step": 1500,
+        "val_loss": 3.7715,
+        "val_ppl": 43.45,
+        "wall_sec": 151.2
+      },
+      {
+        "step": 1750,
+        "val_loss": 3.7295,
+        "val_ppl": 41.66,
+        "wall_sec": 167.3
+      },
+      {
+        "step": 2000,
+        "val_loss": 3.6941,
+        "val_ppl": 40.21,
+        "wall_sec": 183.4
+      },
+      {
+        "step": 2250,
+        "val_loss": 3.6639,
+        "val_ppl": 39.01,
+        "wall_sec": 199.4
+      },
+      {
+        "step": 2500,
+        "val_loss": 3.6501,
+        "val_ppl": 38.48,
+        "wall_sec": 215.5
+      },
+      {
+        "step": 2750,
+        "val_loss": 3.6377,
+        "val_ppl": 38.0,
+        "wall_sec": 231.5
+      },
+      {
+        "step": 3000,
+        "val_loss": 3.6303,
+        "val_ppl": 37.72,
+        "wall_sec": 247.5
+      }
+    ]
+  },
+  "out-6m-epr-elastic-s1337": {
+    "label": "EPR v2.0 + Mass-Elastic RBF (Gem #1)",
+    "median_step_ms": 61.62,
+    "trajectory": [
+      {
+        "step": 0,
+        "val_loss": 8.3698,
+        "val_ppl": 4314.87,
+        "wall_sec": 18.4
+      },
+      {
+        "step": 250,
+        "val_loss": 4.922,
+        "val_ppl": 137.27,
+        "wall_sec": 69.4
+      },
+      {
+        "step": 500,
+        "val_loss": 4.3271,
+        "val_ppl": 75.72,
+        "wall_sec": 85.7
+      },
+      {
+        "step": 750,
+        "val_loss": 4.083,
+        "val_ppl": 59.32,
+        "wall_sec": 101.8
+      },
+      {
+        "step": 1000,
+        "val_loss": 3.9413,
+        "val_ppl": 51.48,
+        "wall_sec": 117.8
+      },
+      {
+        "step": 1250,
+        "val_loss": 3.8385,
+        "val_ppl": 46.46,
+        "wall_sec": 133.8
+      },
+      {
+        "step": 1500,
+        "val_loss": 3.7777,
+        "val_ppl": 43.71,
+        "wall_sec": 149.8
+      },
+      {
+        "step": 1750,
+        "val_loss": 3.7313,
+        "val_ppl": 41.73,
+        "wall_sec": 166.0
+      },
+      {
+        "step": 2000,
+        "val_loss": 3.6958,
+        "val_ppl": 40.28,
+        "wall_sec": 182.1
+      },
+      {
+        "step": 2250,
+        "val_loss": 3.6664,
+        "val_ppl": 39.11,
+        "wall_sec": 198.2
+      },
+      {
+        "step": 2500,
+        "val_loss": 3.6519,
+        "val_ppl": 38.55,
+        "wall_sec": 214.3
+      },
+      {
+        "step": 2750,
+        "val_loss": 3.6372,
+        "val_ppl": 37.99,
+        "wall_sec": 230.4
+      },
+      {
+        "step": 3000,
+        "val_loss": 3.6305,
+        "val_ppl": 37.73,
+        "wall_sec": 246.5
+      }
+    ]
+  },
+  "out-6m-epr-tunnel-wh-s1337": {
+    "label": "EPR v2.0 + Resonant Tunneling (1 WH, Gem #2)",
+    "median_step_ms": 97.7,
+    "trajectory": [
+      {
+        "step": 0,
+        "val_loss": 8.3696,
+        "val_ppl": 4313.91,
+        "wall_sec": 21.4
+      },
+      {
+        "step": 250,
+        "val_loss": 4.922,
+        "val_ppl": 137.28,
+        "wall_sec": 88.9
+      },
+      {
+        "step": 500,
+        "val_loss": 4.3306,
+        "val_ppl": 75.99,
+        "wall_sec": 114.4
+      },
+      {
+        "step": 750,
+        "val_loss": 4.0886,
+        "val_ppl": 59.66,
+        "wall_sec": 139.8
+      },
+      {
+        "step": 1000,
+        "val_loss": 3.937,
+        "val_ppl": 51.27,
+        "wall_sec": 165.2
+      },
+      {
+        "step": 1250,
+        "val_loss": 3.8396,
+        "val_ppl": 46.51,
+        "wall_sec": 190.7
+      },
+      {
+        "step": 1500,
+        "val_loss": 3.7735,
+        "val_ppl": 43.53,
+        "wall_sec": 216.2
+      },
+      {
+        "step": 1750,
+        "val_loss": 3.733,
+        "val_ppl": 41.8,
+        "wall_sec": 241.7
+      },
+      {
+        "step": 2000,
+        "val_loss": 3.6948,
+        "val_ppl": 40.24,
+        "wall_sec": 267.2
+      },
+      {
+        "step": 2250,
+        "val_loss": 3.667,
+        "val_ppl": 39.13,
+        "wall_sec": 292.6
+      },
+      {
+        "step": 2500,
+        "val_loss": 3.651,
+        "val_ppl": 38.51,
+        "wall_sec": 318.1
+      },
+      {
+        "step": 2750,
+        "val_loss": 3.638,
+        "val_ppl": 38.02,
+        "wall_sec": 343.5
+      },
+      {
+        "step": 3000,
+        "val_loss": 3.6303,
+        "val_ppl": 37.72,
+        "wall_sec": 369.0
+      }
+    ]
+  },
+  "out-6m-epr-tunnel-nowh-s1337": {
+    "label": "EPR v2.0 + Pure Resonant Tunneling (0 WH, Gem #2)",
+    "median_step_ms": 97.74,
+    "trajectory": [
+      {
+        "step": 0,
+        "val_loss": 8.366,
+        "val_ppl": 4298.5,
+        "wall_sec": 18.4
+      },
+      {
+        "step": 250,
+        "val_loss": 4.9154,
+        "val_ppl": 136.37,
+        "wall_sec": 80.2
+      },
+      {
+        "step": 500,
+        "val_loss": 4.3159,
+        "val_ppl": 74.88,
+        "wall_sec": 105.6
+      },
+      {
+        "step": 750,
+        "val_loss": 4.1088,
+        "val_ppl": 60.87,
+        "wall_sec": 131.0
+      },
+      {
+        "step": 1000,
+        "val_loss": 3.952,
+        "val_ppl": 52.04,
+        "wall_sec": 156.4
+      },
+      {
+        "step": 1250,
+        "val_loss": 3.8524,
+        "val_ppl": 47.11,
+        "wall_sec": 181.9
+      },
+      {
+        "step": 1500,
+        "val_loss": 3.7924,
+        "val_ppl": 44.36,
+        "wall_sec": 207.4
+      },
+      {
+        "step": 1750,
+        "val_loss": 3.7506,
+        "val_ppl": 42.55,
+        "wall_sec": 232.8
+      },
+      {
+        "step": 2000,
+        "val_loss": 3.7056,
+        "val_ppl": 40.67,
+        "wall_sec": 258.3
+      },
+      {
+        "step": 2250,
+        "val_loss": 3.6897,
+        "val_ppl": 40.03,
+        "wall_sec": 283.7
+      },
+      {
+        "step": 2500,
+        "val_loss": 3.667,
+        "val_ppl": 39.13,
+        "wall_sec": 309.2
+      },
+      {
+        "step": 2750,
+        "val_loss": 3.6554,
+        "val_ppl": 38.68,
+        "wall_sec": 334.6
+      },
+      {
+        "step": 3000,
+        "val_loss": 3.648,
+        "val_ppl": 38.4,
+        "wall_sec": 360.1
+      }
+    ]
+  },
+  "out-6m-epr-full-s1337": {
+    "label": "EPR v2.0 Full (Elastic RBF + Tunneling + 1 WH)",
+    "median_step_ms": 97.87,
+    "trajectory": [
+      {
+        "step": 0,
+        "val_loss": 8.3698,
+        "val_ppl": 4314.76,
+        "wall_sec": 20.6
+      },
+      {
+        "step": 250,
+        "val_loss": 4.9242,
+        "val_ppl": 137.58,
+        "wall_sec": 88.3
+      },
+      {
+        "step": 500,
+        "val_loss": 4.3301,
+        "val_ppl": 75.95,
+        "wall_sec": 113.8
+      },
+      {
+        "step": 750,
+        "val_loss": 4.0974,
+        "val_ppl": 60.19,
+        "wall_sec": 139.2
+      },
+      {
+        "step": 1000,
+        "val_loss": 3.9491,
+        "val_ppl": 51.89,
+        "wall_sec": 164.6
+      },
+      {
+        "step": 1250,
+        "val_loss": 3.8512,
+        "val_ppl": 47.05,
+        "wall_sec": 190.2
+      },
+      {
+        "step": 1500,
+        "val_loss": 3.7815,
+        "val_ppl": 43.88,
+        "wall_sec": 215.7
+      },
+      {
+        "step": 1750,
+        "val_loss": 3.7356,
+        "val_ppl": 41.91,
+        "wall_sec": 241.2
+      },
+      {
+        "step": 2000,
+        "val_loss": 3.7008,
+        "val_ppl": 40.48,
+        "wall_sec": 266.7
+      },
+      {
+        "step": 2250,
+        "val_loss": 3.671,
+        "val_ppl": 39.29,
+        "wall_sec": 292.2
+      },
+      {
+        "step": 2500,
+        "val_loss": 3.6538,
+        "val_ppl": 38.62,
+        "wall_sec": 317.7
+      },
+      {
+        "step": 2750,
+        "val_loss": 3.6407,
+        "val_ppl": 38.12,
+        "wall_sec": 343.2
+      },
+      {
+        "step": 3000,
+        "val_loss": 3.6333,
+        "val_ppl": 37.84,
+        "wall_sec": 368.6
+      }
+    ]
+  }
+}

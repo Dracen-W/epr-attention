@@ -1,5 +1,5 @@
 """
-Training Script for Llama 2 & Unified Fiber-Gravity / ER=EPR Wormhole Attention (v6).
+Training Script for Llama 2 & Unified EPR Attention (v2.0).
 
 ATTRIBUTION:
   Built upon Andrej Karpathy's `llama2.c` (MIT License, Copyright (c) 2023 Andrej)
@@ -7,11 +7,11 @@ ATTRIBUTION:
   See `LICENSE`, `NOTICE`, and `CITATION.bib`.
 
 FEATURES:
-  - Seamless support for Google Colab CUDA (L4 / A100 / G4 / T4) and Apple Silicon MPS.
-  - Automatic bfloat16 -> float16 (+ GradScaler) fallback on T4 (Turing) GPUs.
-  - Exact deterministic validation evaluation (`np.random.RandomState(42)`) across all runs.
-  - Supports Pure Llama 2 (`--use_unified_gravity=False`), v6 Wormhole (`--use_unified_gravity=True`),
-    and all fine-grained physics ablations via CLI flags.
+  - Routes cleanly to standalone `epr_attention.py` (`--use_epr=True` or `--use_unified_gravity=True`).
+  - Defaults to Occam's-razor distilled 3-pillar EPR (`bilat=False, nest=False`), with CLI switches
+    for Mass-Elastic Heteroscedastic RBF (`--use_elastic_rbf=True`), Pairwise Resonant Tunneling
+    (`--use_resonant_tunneling=True`), and all single-switch ablations.
+  - Seamless support for Google Colab CUDA (L4 / A100 / H100 / T4), Apple MPS, and CPU.
 """
 
 import math
@@ -32,7 +32,6 @@ from model import ModelArgs, Transformer
 # -----------------------------------------------------------------------------
 # Default Hyperparameters (overridable via config file or --key=val CLI args)
 # -----------------------------------------------------------------------------
-# I/O & Logging
 out_dir = "out"
 eval_interval = 250
 log_interval = 50
@@ -46,7 +45,7 @@ wandb_project = "epr-attention"
 wandb_run_name = "run" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
 # Dataset & Context Window
-dataset = "wikitext2"  # 'wikitext2', 'shakespeare_char', or 'tinystories'
+dataset = "wikitext2"
 batch_size = 32
 max_seq_len = 256
 vocab_source = "custom"
@@ -60,20 +59,28 @@ n_kv_heads = 4
 multiple_of = 32
 dropout = 0.1
 
-# Unified Fiber-Gravity & ER=EPR Wormhole Attention (v6)
-use_unified_gravity = False  # False = Pure Llama 2 Baseline; True = Fiber-Gravity / Wormhole
-gravity_dim = 0              # 0 = auto power-of-2 packing (d_g=6 for D=32; d_g=14 for D=64)
-use_wormhole = True          # ER=EPR zero-decay, NoPE wormhole on head H-1
-wormhole_v0_init = 2.5       # High vacuum throat threshold for wormhole silence
-use_base_rbf = True          # Low-dim Euclidean RBF capture in base spacetime
-use_bilateral_mass = True    # Bilateral mass coupling M_i * M_j
-use_time_dilation = True     # Dynamic proper time dtau_{h,t} >= 0
-use_nested_time = True       # Solar-system top-down cascade (Earth -> Sat -> Moon)
-use_attn_vacuum = True       # Physical vacuum noise floor e^{v0} (Softmax1)
-use_medium_field = False     # Optional explicit continuous medium field Phi_{h,t-1}
-use_grav_bridge = True       # Spatial bridge dressing (only active if use_medium_field=True)
-use_mass_boost = True        # Field-resonance mass feedback (only active if use_medium_field=True)
-use_event_horizon = False    # Optional QK-L2Norm bounded resonance cone
+# Unified EPR Attention Switches (v2.0 Distilled Defaults + Potential Upgrades)
+use_epr = False                 # Master switch (synchronized with `use_unified_gravity`)
+use_unified_gravity = False     # Backward-compatible alias for `use_epr`
+gravity_dim = 0                 # 0 = auto power-of-2 packing (D=32->24+6+2; D=64->48+14+2)
+use_wormhole = True             # Zero-decay NoPE Wormhole head group
+n_wormhole_heads = 0            # 0 = auto (n_rep if use_wormhole else 0)
+wormhole_v0_init = 2.5          # High vacuum throat threshold for Wormhole silence
+use_base_rbf = True             # Shared low-dim Euclidean-RBF capture
+use_time_dilation = True        # Data-dependent proper-time decay dtau >= 0
+use_attn_vacuum = True          # Learnable Softmax1 vacuum slot e^{v_0}
+
+# Polished Potential Upgrades
+use_elastic_rbf = False         # Mass-elastic heteroscedastic RBF radius (gamma_j)
+elastic_alpha_init = 1.0
+use_resonant_tunneling = False  # Pairwise resonance wormhole tunneling gate
+tunnel_theta_init = 2.5
+tunnel_beta_init = 2.0
+
+# Legacy / Ablation Switches (Default False — proven redundant in 6M ablation)
+use_bilateral_mass = False
+use_nested_time = False
+use_flex_attention = True
 
 # Optimizer & Schedule (AdamW + Cosine Decay)
 gradient_accumulation_steps = 1
@@ -104,12 +111,15 @@ config_keys = [
 ]
 exec(open("configurator.py").read())
 
+if use_unified_gravity or use_epr:
+    use_epr = True
+    use_unified_gravity = True
+
 if lr_decay_iters <= 0:
     lr_decay_iters = max_iters
 if min_lr < 0.0:
     min_lr = learning_rate / 10.0
 
-# Hardware-safe precision fallbacks (T4 lacks native bfloat16; MPS is most stable in float32)
 if "cuda" in device and dtype == "bfloat16" and not torch.cuda.is_bf16_supported():
     print("NOTICE: GPU lacks native bfloat16 (e.g., T4); switching dtype -> float16 (+ GradScaler).")
     dtype = "float16"
@@ -119,7 +129,6 @@ if "mps" in device and dtype != "float32":
 
 config = {k: globals()[k] for k in config_keys}
 
-# Distributed Data Parallel (DDP) setup if launched via torchrun
 ddp = int(os.environ.get("RANK", -1)) != -1
 if ddp:
     init_process_group(backend="nccl")
@@ -142,9 +151,9 @@ if master_process:
     if "cuda" in device and torch.cuda.is_available():
         gpu_name = torch.cuda.get_device_name(0)
         vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
-        print(f"Hardware: {gpu_name} ({vram_gb:.1f} GB VRAM) | dtype={dtype} | compile={compile}")
+        print(f"Hardware: {gpu_name} ({vram_gb:.1f} GB VRAM) | dtype={dtype} | compile={compile} | seed={seed}")
     else:
-        print(f"Hardware: device={device} | dtype={dtype} | compile={compile}")
+        print(f"Hardware: device={device} | dtype={dtype} | compile={compile} | seed={seed}")
     print(f"tokens per iteration: {tokens_per_iter:,} (accum={gradient_accumulation_steps} * B={batch_size} * T={max_seq_len})")
 
 if master_process:
@@ -161,12 +170,12 @@ ptdtype = {"float32": torch.float32, "bfloat16": torch.bfloat16, "float16": torc
 ctx = nullcontext() if device_type == "cpu" else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
 
 # -----------------------------------------------------------------------------
-# Data Loader (TinyStories or Pre-tokenized Binary Memmap)
+# Data Loader
 # -----------------------------------------------------------------------------
 if dataset == "tinystories":
     from tinystories import Task
     assert vocab_source in ["llama2", "custom"]
-    assert vocab_source == "custom" or vocab_size == 32000, "Meta Llama 2 tokenizer has vocab_size=32000"
+    assert vocab_source == "custom" or vocab_size == 32000
     iter_batches = partial(
         Task.iter_batches,
         batch_size=batch_size,
@@ -225,27 +234,32 @@ model_args = dict(
     multiple_of=multiple_of,
     max_seq_len=max_seq_len,
     dropout=dropout,
+    use_epr=use_epr,
     use_unified_gravity=use_unified_gravity,
     gravity_dim=gravity_dim,
     use_wormhole=use_wormhole,
+    n_wormhole_heads=n_wormhole_heads,
     wormhole_v0_init=wormhole_v0_init,
     use_base_rbf=use_base_rbf,
-    use_bilateral_mass=use_bilateral_mass,
     use_time_dilation=use_time_dilation,
-    use_nested_time=use_nested_time,
     use_attn_vacuum=use_attn_vacuum,
-    use_medium_field=use_medium_field,
-    use_grav_bridge=use_grav_bridge,
-    use_mass_boost=use_mass_boost,
-    use_event_horizon=use_event_horizon,
+    use_elastic_rbf=use_elastic_rbf,
+    elastic_alpha_init=elastic_alpha_init,
+    use_resonant_tunneling=use_resonant_tunneling,
+    tunnel_theta_init=tunnel_theta_init,
+    tunnel_beta_init=tunnel_beta_init,
+    use_bilateral_mass=use_bilateral_mass,
+    use_nested_time=use_nested_time,
+    use_flex_attention=use_flex_attention,
 )
 
 if init_from == "scratch":
-    if use_unified_gravity:
+    if use_epr:
         arch_label = (
-            f"Llama 2 + UnifiedFiberGravity(wormhole={use_wormhole}[v0={wormhole_v0_init}], "
-            f"rbf={use_base_rbf}, bilat={use_bilateral_mass}, dil={use_time_dilation}, "
-            f"nest={use_nested_time}, vac={use_attn_vacuum}, med={use_medium_field}, hor={use_event_horizon})"
+            f"Llama 2 + EPRAttention(wormhole={use_wormhole}[v0={wormhole_v0_init}], "
+            f"rbf={use_base_rbf}[elastic={use_elastic_rbf}], dil={use_time_dilation}, "
+            f"vac={use_attn_vacuum}, tunnel={use_resonant_tunneling}, "
+            f"bilat={use_bilateral_mass}, nest={use_nested_time})"
         )
     else:
         arch_label = "Pure Llama 2 Baseline (Bit-Exact karpathy/llama2.c)"
@@ -267,7 +281,6 @@ total_params = sum(p.numel() for p in model.parameters())
 print(f"number of parameters: {total_params / 1e6:.2f}M ({total_params:,})")
 model.to(device)
 
-# GradScaler is needed only for float16 (T4); bfloat16/float32 use a clean no-op wrapper
 if device_type == "cuda" and dtype == "float16":
     scaler = torch.amp.GradScaler("cuda", enabled=True)
 else:
@@ -289,7 +302,8 @@ if compile:
 
 if ddp:
     prefix = "_orig_mod." if compile else ""
-    model._ddp_params_and_buffers_to_ignore = {prefix + "freqs_cos", prefix + "freqs_sin"}
+    ignore_bufs = {prefix + name for name, _ in model.named_buffers()}
+    model._ddp_params_and_buffers_to_ignore = ignore_bufs
     model = DDP(model, device_ids=[ddp_local_rank])
 
 
@@ -316,7 +330,6 @@ def estimate_loss():
 
 
 def get_lr(it: int) -> float:
-    """Linear warmup followed by cosine decay down to min_lr."""
     if it < warmup_iters:
         return learning_rate * (it + 1) / (warmup_iters + 1)
     if it > lr_decay_iters:
@@ -338,9 +351,6 @@ local_iter_num = 0
 raw_model = model.module if ddp else model
 running_mfu = -1.0
 
-# -----------------------------------------------------------------------------
-# Main Training Loop
-# -----------------------------------------------------------------------------
 while True:
     lr = get_lr(iter_num) if decay_lr else learning_rate
     for param_group in optimizer.param_groups:
@@ -377,7 +387,7 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(ckpt, os.path.join(out_dir, "ckpt.pt"))
-                if export_bin and not use_unified_gravity:
+                if export_bin and not use_epr:
                     from export import model_export
                     model_export(raw_model, os.path.join(out_dir, "model.bin"), version=0)
 

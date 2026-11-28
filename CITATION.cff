@@ -1,19 +1,19 @@
 cff-version: 1.2.0
 message: "If you use this architecture, code, or experimental findings in your research, please cite it as below."
-title: "EPR Attention: Spacetime Folding and Spatial Gravitational Field Coupling"
+title: "EPR Attention: An Experimental Long-Context Attention Mechanism Built on llama2.c"
 type: software
 authors:
   - alias: "Dracen-W"
-date-released: 2026-11-26
-version: "6.0.0"
+date-released: 2026-11-27
+version: "2.0.0"
 license: MIT
 repository-code: "https://github.com/Dracen-W/epr-attention"
 keywords:
   - large-language-models
   - attention-mechanism
   - length-extrapolation
+  - kv-cache
   - llama2
-  - physics-inspired-ai
 references:
   - type: software
     title: "llama2.c"

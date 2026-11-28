@@ -6,6 +6,9 @@
 
 </div>
 
+> [!NOTE]
+> **`v1.0` Legacy Experimental Archive (`v6-wormhole`)**: This page preserves the original multi-corpus `v1.0` campaign (`bilat=True, nest=True`, window-averaged `PPL@L`, and 64-trial initial needle sweeps) tagged at [`releases/tag/1.0`](https://github.com/Dracen-W/epr-attention/releases/tag/1.0). For the **unified `v2.0` distilled architecture**, **3-seed variance (`Mean ± Std`)**, **384-sequence un-diluted bucketed extrapolation**, **200-trial dummy-aligned needle + counterfactual 2-key recall**, and **OOD / Vacuum Abstention AUROC**, see the main [`README.md`](../README.md).
+
 This page archives the complete experimental record of **Unified Fiber-Gravity & ER=EPR Wormhole Attention (`v6-wormhole`)** across **6 benchmarks** (`WikiText-2`, `TinyStories`, `FineWeb-Edu`, `RealWorld 16K`, `WMT14 En→De`, and `WMT14 Trilingual Zero-Shot De↔Fr`), **3 model scales** (`1.3M → 6.8M/7.9M → 27.6M`), **SOTA baselines** (`Vanilla RoPE`, `YaRN`, `Dynamic NTK`, `ALiBi`, `FoX`), **Iso-Wallclock PPL efficiency**, and **qualitative samples** — with full architecture & training hyperparameters annotated for every run.
 
 ---

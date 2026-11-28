@@ -1,1 +1,18 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS metadata
 .DS_Store
+
+# Checkpoints, logs & build artifacts
+out/
+out-*/
+*.pt
+err.txt
+stdout.txt
+test/
+run
+runq

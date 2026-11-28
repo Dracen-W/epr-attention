@@ -1,58 +1,75 @@
 """
-Zero-Shot Distant Needle-in-a-Haystack Recall Benchmark.
+Zero-Shot Distant Needle-in-a-Haystack Recall Benchmark (200 Trials + Trial-Level 95% CI).
 
-Places a unique 16-token validation span ("needle") at position 0, inserts a
-distractor haystack of length D in {64, 128, 256, 512, 1024, 1536}, then cues
-the first 4 tokens of the needle and measures:
-  - Exact Top-1 Recall Accuracy (%) on the remaining 12 tokens
+Places a unique 16-token validation span ("needle") at position 0 (vs length-matched
+dummy distractor at position 0 so target positions stay strictly identical), inserts
+a distractor haystack of length D, cues the first 4 tokens of the needle, and measures:
+  - Top-1 Recall Accuracy (%) ± Trial-Level 95% Confidence Interval on the remaining 12 tokens
   - Recall NLL Gain (Delta NLL = NLL_without_needle - NLL_with_needle)
 
 Usage:
-  python3 eval_needle.py out-6m-base out-6m-v6-wormhole --distances=64,128,256,512,1024,1536
+  python3 eval_needle.py out-6m-base out-6m-fox out-6m-epr --distances=64,128,256,512,1024,1536
 """
 
+import math
 import os
 import sys
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-from model import ModelArgs, Transformer
+from run_sota_baselines import load_any_checkpoint
+
+
+@torch.no_grad()
+def evaluate_needle_single_dist(
+    model, data, dist: int, needle_len: int = 16, prefix_cue: int = 4,
+    num_trials: int = 200, seed: int = 2026, device: str = "cuda",
+):
+    """Canonical single-distance needle evaluator (shared identically with `eval_kv_eviction.py`)."""
+    rng = np.random.RandomState(seed)
+    nll_with, nll_without, acc_with = [], [], []
+    max_start = len(data) - dist - 200
+    for _ in range(num_trials):
+        i_needle = rng.randint(0, max_start)
+        i_hay = rng.randint(0, max_start)
+        while abs(i_hay - i_needle) < dist + 64:
+            i_hay = rng.randint(0, max_start)
+        needle = data[i_needle : i_needle + needle_len].astype(np.int64)
+        hay = data[i_hay : i_hay + dist].astype(np.int64)
+        i_dummy = (i_hay + dist + 50) % max_start
+        dummy = data[i_dummy : i_dummy + needle_len].astype(np.int64)
+
+        seq_w = np.concatenate([needle, hay, needle])
+        seq_wo = np.concatenate([dummy, hay, needle])
+        x_batch = torch.stack([torch.from_numpy(seq_w[:-1]), torch.from_numpy(seq_wo[:-1])]).to(device)
+        y_batch = torch.stack([torch.from_numpy(seq_w[1:]), torch.from_numpy(seq_wo[1:])]).to(device)
+
+        logits = model(x_batch, targets=y_batch)
+        tail_start = needle_len + dist + prefix_cue - 1
+        tl_w, tt_w = logits[0, tail_start:, :], y_batch[0, tail_start:]
+        tl_wo, tt_wo = logits[1, tail_start:, :], y_batch[1, tail_start:]
+
+        nll_with.append(F.cross_entropy(tl_w, tt_w).item())
+        nll_without.append(F.cross_entropy(tl_wo, tt_wo).item())
+        acc_with.append((tl_w.argmax(dim=-1) == tt_w).float().mean().item() * 100.0)
+
+    acc_pct = float(np.mean(acc_with))
+    # Unbiased trial-level 95% CI (accounts for within-span token correlation!)
+    se = float(np.std(acc_with, ddof=1)) / math.sqrt(max(1, num_trials))
+    ci_95 = 1.96 * se
+    dnll = float(np.mean(nll_without) - np.mean(nll_with))
+    return acc_pct, ci_95, dnll
 
 
 @torch.no_grad()
 def evaluate_needle_recall(model, data, distances, needle_len=16, prefix_cue=4, num_trials=200, device="cuda"):
     cols = []
     for D in distances:
-        rng = np.random.RandomState(2026)
-        nll_with, nll_without, acc_with = [], [], []
-        max_start = len(data) - D - 200
-        for _ in range(num_trials):
-            i_needle = rng.randint(0, max_start)
-            i_hay = rng.randint(0, max_start)
-            while abs(i_hay - i_needle) < D + 64:
-                i_hay = rng.randint(0, max_start)
-            needle = data[i_needle : i_needle + needle_len].astype(np.int64)
-            hay = data[i_hay : i_hay + D].astype(np.int64)
-            i_dummy = (i_hay + D + 50) % max_start
-            dummy = data[i_dummy : i_dummy + needle_len].astype(np.int64)
-
-            for seq, nll_list, acc_list in [
-                (np.concatenate([needle, hay, needle]), nll_with, acc_with),
-                (np.concatenate([dummy, hay, needle]), nll_without, None),
-            ]:
-                x = torch.from_numpy(seq[:-1]).unsqueeze(0).to(device)
-                y = torch.from_numpy(seq[1:]).unsqueeze(0).to(device)
-                logits = model(x, targets=y)
-                tail_start = needle_len + D + prefix_cue - 1
-                tl, tt = logits[0, tail_start:, :], y[0, tail_start:]
-                nll_list.append(F.cross_entropy(tl, tt).item())
-                if acc_list is not None:
-                    acc_list.append((tl.argmax(dim=-1) == tt).float().mean().item())
-
-        acc_pct = float(np.mean(acc_with)) * 100.0
-        dnll = float(np.mean(nll_without) - np.mean(nll_with))
-        cols.append(f"{acc_pct:5.1f}% ({dnll:+.2f})")
+        acc_pct, ci_95, dnll = evaluate_needle_single_dist(
+            model, data, D, needle_len=needle_len, prefix_cue=prefix_cue, num_trials=num_trials, seed=2026, device=device
+        )
+        cols.append(f"{acc_pct:4.1f}±{ci_95:3.1f}% ({dnll:+.2f})")
     return cols
 
 
@@ -77,25 +94,18 @@ def main():
         sys.exit(1)
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    header = f"{'Checkpoint':26s} | " + " | ".join(f"{f'Dist={D}':>14s}" for D in distances)
-    print("=== Distant Needle-in-a-Haystack Recall: Top-1 Acc (%) [Delta NLL] ===")
+    header = f"{'Checkpoint':26s} | " + " | ".join(f"{f'Dist={D}':>18s}" for D in distances)
+    print(f"=== Distant Needle-in-a-Haystack Recall ({num_trials} trials): Acc±95%CI [Delta NLL] ===")
     print(header)
     print("-" * len(header))
 
-    valid_fields = set(ModelArgs.__dataclass_fields__.keys())
     for path in ckpt_dirs:
-        ckpt_path = os.path.join(path, "ckpt.pt") if os.path.isdir(path) else path
-        ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
-        margs = ModelArgs(**{k: v for k, v in ckpt["model_args"].items() if k in valid_fields})
-        model = Transformer(margs)
-        model.load_state_dict({k.replace("_orig_mod.", ""): v for k, v in ckpt["model"].items()}, strict=True)
-        model.to(device).eval()
-
+        model, _, ckpt = load_any_checkpoint(path, device=device)
         val_bin = os.path.join(base_dir, "data", ckpt.get("config", {}).get("dataset", "wikitext2"), "val.bin")
         data = np.memmap(val_bin, dtype=np.uint16, mode="r")
         cols = evaluate_needle_recall(model, data, distances, num_trials=num_trials, device=device)
         label = os.path.basename(path.rstrip("/"))
-        print(f"{label:26s} | " + " | ".join(f"{c:>14s}" for c in cols))
+        print(f"{label:26s} | " + " | ".join(f"{c:>18s}" for c in cols))
 
 
 if __name__ == "__main__":

@@ -1,132 +1,136 @@
 """
-Evaluation: Quality Cost of Asymmetric EPRKVCache Sliding-Window Eviction.
-Measures exact tradeoff between KV-Cache memory savings and:
-  1. Un-diluted Tail Extrapolation PPL ([1024:2048])
-  2. 200-trial Distant Needle Recall (Dist=1536) with 95% CI
+Evaluation: Quality Cost & Decode Speed of Asymmetric `EPRKVCache` Eviction.
+
+Strictly shares the EXACT 384-sequence Tail PPL setup (`eval_extrapolation.py`) and
+EXACT 200-trial dummy-aligned Needle setup (`eval_needle.py`) so `Full (∞)` matches
+the main benchmark tables to the second decimal place! Also verifies stateful
+`EPRKVCache` ring-buffer parity and autoregressive decoding throughput (`tok/s`).
+
+Usage:
+  python3 eval_kv_eviction.py out-6m-epr
 """
-import math, os, sys
+
+import os
+import sys
+import time
 import numpy as np
 import torch
 import torch.nn.functional as F
-from model import ModelArgs, Transformer
+
+from eval_extrapolation import evaluate_bucketed_ppl
+from eval_needle import evaluate_needle_single_dist
+from run_sota_baselines import load_any_checkpoint
 
 
-def set_damped_window(model, window_size):
-    """Apply exact EPRKVCache sliding-window mask strictly to damped heads (0..H-2), keeping Wormhole head (H-1) full-context."""
+def apply_damped_sliding_window_hook(model, window_size):
+    """
+    Apply exact `EPRKVCache` ring-buffer eviction mask to damped heads (`0..n_damped-1`)
+    during parallel evaluation, keeping Wormhole head(s) full-context.
+    """
     for layer in model.layers:
         attn = layer.attention
-        if not hasattr(attn, "_orig_compute"):
-            attn._orig_compute = attn._compute_fields_and_qkv
-        attn.use_flex_attention = False
+        if not hasattr(attn, "_orig_forward"):
+            attn._orig_forward = attn.forward
 
-        def make_wrapped(orig_fn, W, n_heads, use_wh, use_vac):
-            def wrapped(x, fc, fs):
-                q_aug, k_aug, v_aug, attn_mask, dtau, rho = orig_fn(x, fc, fs)
-                if W is not None:
-                    T = x.size(1)
-                    n_damped = (n_heads - 1) if use_wh else n_heads
-                    q_pos = torch.arange(T, device=x.device).unsqueeze(1)
-                    k_pos = torch.arange(T, device=x.device).unsqueeze(0)
-                    evict = (q_pos - k_pos) >= W
-                    if use_vac:
-                        evict_pad = F.pad(evict, (1, 0), value=False).view(1, 1, T, T + 1)
+        if window_size is None:
+            attn.forward = attn._orig_forward
+            continue
+
+        def make_evicted_forward(a, W):
+            def evicted_forward(x, freqs_cos, freqs_sin, kv_cache=None, layer_idx=0):
+                if kv_cache is not None:
+                    return a._orig_forward(x, freqs_cos, freqs_sin, kv_cache=kv_cache, layer_idx=layer_idx)
+                B, T, _ = x.shape
+                q_aug, k_vac, k_real, xv, _, tau = a._compute_step_tensors(x, freqs_cos, freqs_sin, tau_offset=None)
+                if a.use_attn_vacuum:
+                    k_aug = torch.cat([k_vac, k_real], dim=-2)
+                    v_aug = F.pad(xv, (0, 0, 1, 0), value=0.0)
+                else:
+                    k_aug, v_aug = k_real, xv
+                if a.n_rep > 1:
+                    k_aug = k_aug.repeat_interleave(a.n_rep, dim=1)
+                    v_aug = v_aug.repeat_interleave(a.n_rep, dim=1)
+
+                dt = (tau.unsqueeze(-1) - tau.unsqueeze(-2)).clamp(min=0.0)
+                q_pos = torch.arange(T, device=x.device).unsqueeze(1)
+                k_pos = torch.arange(T, device=x.device).unsqueeze(0)
+                cm = torch.where(k_pos <= q_pos, 0.0, float("-inf")).view(1, 1, T, T)
+                evict = ((q_pos - k_pos) >= W).view(1, 1, T, T)
+
+                if a.use_resonant_tunneling:
+                    cm_all = cm.expand(1, a.n_heads, T, T).clone()
+                    if a.n_damped > 0:
+                        cm_all[:, : a.n_damped] = cm_all[:, : a.n_damped].masked_fill(evict, float("-inf"))
+                    out = a._attend_exact_tunneling(
+                        q_aug, k_aug, v_aug, dt=dt, causal_mask=cm_all,
+                        has_vacuum=a.use_attn_vacuum, head_slice=slice(0, a.n_heads),
+                    )
+                else:
+                    if a.use_attn_vacuum:
+                        mask = F.pad(-dt, (1, 0), value=0.0) + F.pad(cm, (1, 0), value=0.0)
+                        evict_pad = F.pad(evict, (1, 0), value=False)
+                        if a.n_damped > 0:
+                            mask[:, : a.n_damped] = mask[:, : a.n_damped].masked_fill(evict_pad, float("-inf"))
                     else:
-                        evict_pad = evict.view(1, 1, T, T)
-                    attn_mask = attn_mask.clone()
-                    attn_mask[:, :n_damped] = attn_mask[:, :n_damped].masked_fill(evict_pad, float("-inf"))
-                return q_aug, k_aug, v_aug, attn_mask, dtau, rho
-            return wrapped
+                        mask = -dt + cm
+                        if a.n_damped > 0:
+                            mask[:, : a.n_damped] = mask[:, : a.n_damped].masked_fill(evict, float("-inf"))
+                    out = F.scaled_dot_product_attention(q_aug, k_aug, v_aug, attn_mask=mask.to(q_aug.dtype), is_causal=False, scale=1.0)
+                return a.resid_dropout(a.wo(out.transpose(1, 2).contiguous().view(B, T, -1)))
+            return evicted_forward
 
-        attn._compute_fields_and_qkv = make_wrapped(
-            attn._orig_compute, window_size, attn.n_heads, attn.use_wormhole, attn.use_attn_vacuum
-        )
-
-
-@torch.no_grad()
-def eval_tail_ppl(model, data, L=2048, b0=1024, b1=2048, eval_batches=16, batch_size=2, device="cuda"):
-    rng = np.random.RandomState(1234)
-    max_idx = len(data) - L - 1
-    losses = []
-    for _ in range(eval_batches):
-        ix = rng.randint(0, max_idx, size=(batch_size,))
-        x = torch.stack([torch.from_numpy(data[i : i + L].astype(np.int64)) for i in ix]).to(device)
-        y = torch.stack([torch.from_numpy(data[i + 1 : i + 1 + L].astype(np.int64)) for i in ix]).to(device)
-        logits = model(x, y)
-        tok_loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1), reduction="none").view(batch_size, L)
-        losses.append(tok_loss[:, b0:b1].mean().item())
-    return math.exp(min(20.0, float(np.mean(losses))))
+        attn.forward = make_evicted_forward(attn, window_size)
 
 
 @torch.no_grad()
-def eval_needle_single(model, data, dist=1536, num_trials=200, cue_len=4, val_len=12, device="cuda"):
-    rng = np.random.RandomState(42)
-    span = cue_len + val_len
-    correct, total = 0, 0
-    nll_with, nll_without = [], []
-    max_start = len(data) - dist - span * 3 - 10
-
-    for _ in range(num_trials):
-        s_needle = rng.randint(0, max_start)
-        s_hay = rng.randint(0, max_start)
-        needle = data[s_needle : s_needle + span].astype(np.int64)
-        hay = data[s_hay : s_hay + dist].astype(np.int64)
-
-        seq_with = np.concatenate([needle, hay, needle])
-        seq_no = np.concatenate([hay, needle])
-
-        for seq, is_with in [(seq_with, True), (seq_no, False)]:
-            x = torch.from_numpy(seq[:-1]).unsqueeze(0).to(device)
-            y = torch.from_numpy(seq[1:]).unsqueeze(0).to(device)
-            logits = model(x, y)
-            pred_logits = logits[0, -val_len:, :]
-            targets = y[0, -val_len:]
-            loss = F.cross_entropy(pred_logits, targets).item()
-            if is_with:
-                nll_with.append(loss)
-                correct += (pred_logits.argmax(dim=-1) == targets).sum().item()
-                total += val_len
-            else:
-                nll_without.append(loss)
-
-    acc = 100.0 * correct / max(1, total)
-    ci = 196.0 * math.sqrt((acc / 100.0) * (1.0 - acc / 100.0) / max(1, total))
-    dnll = float(np.mean(nll_without) - np.mean(nll_with))
-    return acc, ci, dnll
+def bench_stateful_decode(model, window_size, prompt_len=512, gen_tokens=128, device="cuda"):
+    """Measure real stateful `EPRKVCache` autoregressive decode speed (tok/s)."""
+    x = torch.randint(0, model.vocab_size, (1, prompt_len), device=device)
+    _ = model.generate(x[:, :32], max_new_tokens=4, temperature=0.0, use_kv_cache=True, damped_window=window_size)
+    if device == "cuda":
+        torch.cuda.synchronize()
+    t0 = time.time()
+    _ = model.generate(x, max_new_tokens=gen_tokens, temperature=0.0, use_kv_cache=True, damped_window=window_size)
+    if device == "cuda":
+        torch.cuda.synchronize()
+    return gen_tokens / max(1e-6, (time.time() - t0))
 
 
 def main():
-    ckpt_dir = sys.argv[1] if len(sys.argv) > 1 else "out-6m-v6-wormhole"
-    ckpt_path = os.path.join(ckpt_dir, "ckpt.pt") if os.path.isdir(ckpt_dir) else ckpt_dir
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    ckpt_dir = sys.argv[1] if len(sys.argv) > 1 else "out-6m-epr"
+    device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
 
-    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
-    valid_fields = set(ModelArgs.__dataclass_fields__.keys())
-    margs = ModelArgs(**{k: v for k, v in ckpt["model_args"].items() if k in valid_fields})
-    margs.dropout = 0.0
-    model = Transformer(margs)
-    model.load_state_dict({k.replace("_orig_mod.", ""): v for k, v in ckpt["model"].items()}, strict=True)
-    model.to(device).eval()
+    model, margs, ckpt = load_any_checkpoint(ckpt_dir, device=device)
+    if not margs.use_epr:
+        raise SystemExit("eval_kv_eviction.py requires an EPR Attention checkpoint.")
 
-    val_bin = os.path.join("data", ckpt.get("config", {}).get("dataset", "wikitext2"), "val.bin")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    val_bin = os.path.join(base_dir, "data", ckpt.get("config", {}).get("dataset", "wikitext2"), "val.bin")
     data = np.memmap(val_bin, dtype=np.uint16, mode="r")
 
-    H = margs.n_heads
-    n_damped = H - 1 if margs.use_wormhole else H
-    print(f"=== Asymmetric EPRKVCache Eviction Cost ({ckpt_dir}, H={H}, Wormhole={margs.use_wormhole}) ===")
-    print(f"{'Damped Window W':>16s} | {'KV Saved @2K':>12s} | {'KV Saved @8K':>12s} | {'Tail PPL [1K:2K]':>16s} | {'Needle@1536 (200 trials)':>26s}")
-    print("-" * 96)
+    attn0 = model.layers[0].attention
+    print(f"=== Asymmetric EPRKVCache Eviction Tradeoff ({ckpt_dir}, H={attn0.n_heads}, WH={attn0.n_wh}) ===")
+    print(f"{'Damped Window W':>16s} | {'Saved @2K':>9s} | {'Saved @8K':>9s} | {'Tail PPL [1K:2K]':>16s} | {'Needle@1536 (200 trials)':>26s} | {'Decode tok/s':>12s}")
+    print("-" * 106)
 
     for W in [None, 512, 256, 128, 64]:
-        set_damped_window(model, W)
-        ppl_tail = eval_tail_ppl(model, data, device=device)
-        acc, ci, dnll = eval_needle_single(model, data, dist=1536, num_trials=200, device=device)
+        apply_damped_sliding_window_hook(model, W)
+        bp = evaluate_bucketed_ppl(model, data, L_max=2048, buckets=[(1024, 2048)], eval_batches=24, batch_size=16, seed=1234, device=device)
+        ppl_tail = bp[(1024, 2048)]
+        acc, ci, dnll = evaluate_needle_single_dist(model, data, dist=1536, num_trials=200, seed=2026, device=device)
+
+        apply_damped_sliding_window_hook(model, None)
+        tok_s = bench_stateful_decode(model, W, prompt_len=512, gen_tokens=64, device=device)
+
         if W is None:
             s2k, s8k, w_lbl = 0.0, 0.0, "Full (∞)"
         else:
-            s2k = (1.0 - (n_damped * min(W, 2048) + (H - n_damped) * 2048) / (H * 2048)) * 100.0
-            s8k = (1.0 - (n_damped * min(W, 8192) + (H - n_damped) * 8192) / (H * 8192)) * 100.0
+            c2k = model.build_kv_cache(batch_size=1, max_seq_len=2048, window_size=W, dtype=torch.bfloat16)
+            c8k = model.build_kv_cache(batch_size=1, max_seq_len=8192, window_size=W, dtype=torch.bfloat16)
+            s2k = c2k.savings_ratio(2048) * 100.0
+            s8k = c8k.savings_ratio(8192) * 100.0
             w_lbl = f"W = {W}"
-        print(f"{w_lbl:>16s} | {s2k:11.1f}% | {s8k:11.1f}% | {ppl_tail:16.2f} | {acc:5.1f}±{ci:3.1f}% (ΔNLL {dnll:+.2f})")
+        print(f"{w_lbl:>16s} | {s2k:8.1f}% | {s8k:8.1f}% | {ppl_tail:16.2f} | {acc:5.1f}±{ci:3.1f}% (ΔNLL {dnll:+.2f}) | {tok_s:10.1f}/s")
 
 
 if __name__ == "__main__":

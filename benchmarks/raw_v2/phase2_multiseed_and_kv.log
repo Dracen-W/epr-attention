@@ -1,0 +1,793 @@
+Running 3-seed variance (seeds 1337, 2026, 42) on Llama 2, FoX, EPR v2.0, and EPR v2.0 + Mass-Elastic RBF (Gem #1)
+
+[SeedRun 1/8] Training llama2_s2026 -> out-6m-base-s2026
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-base-s2026
+Overriding: use_epr = False
+Overriding: seed = 2026
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=2026
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Pure Llama 2 Baseline (Bit-Exact karpathy/llama2.c)
+number of parameters: 5.87M (5,868,800)
+num decayed parameter tensors: 43, with 5,865,472 parameters
+num non-decayed parameter tensors: 13, with 3,328 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+step 0: train loss 8.3525, val loss 8.3513, val ppl 4235.64, elapsed 3.8s
+iter 0: loss 8.3478 | lr 3.98e-06 | time 5545.90ms | mfu -100.00%
+iter 100: loss 6.2779 | lr 4.02e-04 | time 35.98ms | mfu 6.52%
+iter 200: loss 5.3288 | lr 8.00e-04 | time 35.60ms | mfu 6.52%
+step 250: train loss 4.9854, val loss 5.0453, val ppl 155.29, elapsed 14.7s
+saving checkpoint to out-6m-base-s2026
+iter 300: loss 4.8789 | lr 7.98e-04 | time 34.14ms | mfu 6.56%
+iter 400: loss 4.5985 | lr 7.91e-04 | time 35.61ms | mfu 6.56%
+step 500: train loss 4.2895, val loss 4.4912, val ppl 89.23, elapsed 24.2s
+saving checkpoint to out-6m-base-s2026
+iter 500: loss 4.3547 | lr 7.80e-04 | time 668.60ms | mfu 5.94%
+iter 600: loss 4.2602 | lr 7.64e-04 | time 34.55ms | mfu 6.02%
+iter 700: loss 4.1730 | lr 7.45e-04 | time 37.12ms | mfu 6.05%
+step 750: train loss 3.9586, val loss 4.2762, val ppl 71.97, elapsed 33.7s
+saving checkpoint to out-6m-base-s2026
+iter 800: loss 4.0307 | lr 7.21e-04 | time 34.60ms | mfu 6.13%
+iter 900: loss 3.8972 | lr 6.95e-04 | time 34.65ms | mfu 6.19%
+step 1000: train loss 3.7592, val loss 4.1534, val ppl 63.65, elapsed 43.2s
+saving checkpoint to out-6m-base-s2026
+iter 1000: loss 3.9621 | lr 6.64e-04 | time 668.97ms | mfu 5.61%
+iter 1100: loss 3.9115 | lr 6.32e-04 | time 34.83ms | mfu 5.72%
+iter 1200: loss 3.9096 | lr 5.96e-04 | time 36.80ms | mfu 5.78%
+step 1250: train loss 3.6123, val loss 4.0791, val ppl 59.09, elapsed 52.9s
+saving checkpoint to out-6m-base-s2026
+iter 1300: loss 3.7924 | lr 5.59e-04 | time 35.46ms | mfu 5.87%
+iter 1400: loss 3.7027 | lr 5.20e-04 | time 35.88ms | mfu 5.93%
+step 1500: train loss 3.4962, val loss 4.0145, val ppl 55.39, elapsed 62.6s
+saving checkpoint to out-6m-base-s2026
+iter 1500: loss 3.7132 | lr 4.80e-04 | time 674.82ms | mfu 5.38%
+iter 1600: loss 3.6214 | lr 4.40e-04 | time 34.66ms | mfu 5.51%
+iter 1700: loss 3.6863 | lr 4.00e-04 | time 36.76ms | mfu 5.60%
+step 1750: train loss 3.4119, val loss 3.9790, val ppl 53.46, elapsed 72.3s
+saving checkpoint to out-6m-base-s2026
+iter 1800: loss 3.6421 | lr 3.60e-04 | time 34.62ms | mfu 5.72%
+iter 1900: loss 3.5479 | lr 3.21e-04 | time 36.04ms | mfu 5.80%
+step 2000: train loss 3.3255, val loss 3.9358, val ppl 51.20, elapsed 81.8s
+saving checkpoint to out-6m-base-s2026
+iter 2000: loss 3.5169 | lr 2.84e-04 | time 672.00ms | mfu 5.25%
+iter 2100: loss 3.4485 | lr 2.48e-04 | time 34.95ms | mfu 5.40%
+iter 2200: loss 3.5126 | lr 2.16e-04 | time 36.01ms | mfu 5.51%
+step 2250: train loss 3.2691, val loss 3.9133, val ppl 50.07, elapsed 91.2s
+saving checkpoint to out-6m-base-s2026
+iter 2300: loss 3.4299 | lr 1.85e-04 | time 34.61ms | mfu 5.64%
+iter 2400: loss 3.5087 | lr 1.59e-04 | time 36.09ms | mfu 5.72%
+step 2500: train loss 3.2185, val loss 3.8909, val ppl 48.95, elapsed 100.7s
+saving checkpoint to out-6m-base-s2026
+iter 2500: loss 3.5070 | lr 1.35e-04 | time 679.06ms | mfu 5.18%
+iter 2600: loss 3.3994 | lr 1.16e-04 | time 34.42ms | mfu 5.35%
+iter 2700: loss 3.4257 | lr 1.00e-04 | time 36.40ms | mfu 5.46%
+step 2750: train loss 3.1880, val loss 3.8819, val ppl 48.52, elapsed 110.2s
+saving checkpoint to out-6m-base-s2026
+iter 2800: loss 3.3590 | lr 8.90e-05 | time 35.15ms | mfu 5.58%
+iter 2900: loss 3.4285 | lr 8.23e-05 | time 36.61ms | mfu 5.66%
+step 3000: train loss 3.1671, val loss 3.8737, val ppl 48.12, elapsed 119.7s
+saving checkpoint to out-6m-base-s2026
+iter 3000: loss 3.4238 | lr 8.00e-05 | time 672.64ms | mfu 5.13%
+[DONE llama2_s2026] val_loss=3.8737 | PPL[256:512]=46.84 [1024:2048]=183.8 | Needle@1536=13.79%
+
+[SeedRun 2/8] Training fox_s2026 -> out-6m-fox-s2026
+
+=== Training FOX (seed=2026) | decayed params: 5,871,616 ===
+num decayed parameter tensors: 49, with 5,871,616 parameters
+num non-decayed parameter tensors: 19, with 3,352 parameters
+using fused AdamW: True
+[FOX] step    0: val loss 8.3593, val ppl 4269.65, elapsed 5.7s
+[FOX] step  250: val loss 5.0237, val ppl 151.97, elapsed 21.4s
+[FOX] step  500: val loss 4.4021, val ppl 81.62, elapsed 35.6s
+[FOX] step  750: val loss 4.1950, val ppl 66.35, elapsed 49.7s
+[FOX] step 1000: val loss 4.0808, val ppl 59.19, elapsed 63.8s
+[FOX] step 1250: val loss 4.0061, val ppl 54.93, elapsed 77.8s
+[FOX] step 1500: val loss 3.9471, val ppl 51.79, elapsed 91.7s
+[FOX] step 1750: val loss 3.9058, val ppl 49.69, elapsed 105.7s
+[FOX] step 2000: val loss 3.8703, val ppl 47.96, elapsed 119.8s
+[FOX] step 2250: val loss 3.8361, val ppl 46.34, elapsed 133.8s
+[FOX] step 2500: val loss 3.8141, val ppl 45.34, elapsed 147.9s
+[FOX] step 2750: val loss 3.8004, val ppl 44.72, elapsed 162.0s
+[FOX] step 3000: val loss 3.7902, val ppl 44.26, elapsed 176.0s
+[DONE fox_s2026] val_loss=3.7902 | PPL[256:512]=43.16 [1024:2048]=41.88 | Needle@1536=25.67%
+
+[SeedRun 3/8] Training epr_v2_s2026 -> out-6m-epr-v2-s2026
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-v2-s2026
+Overriding: use_epr = True
+Overriding: use_wormhole = True
+Overriding: use_elastic_rbf = False
+Overriding: use_resonant_tunneling = False
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 2026
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=2026
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=True[v0=2.5], rbf=True[elastic=False], dil=True, vac=True, tunnel=False, bilat=False, nest=False)
+number of parameters: 5.77M (5,769,026)
+num decayed parameter tensors: 37, with 5,765,632 parameters
+num non-decayed parameter tensors: 31, with 3,394 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+step 0: train loss 8.3597, val loss 8.3615, val ppl 4279.06, elapsed 5.2s
+iter 0: loss 8.3631 | lr 3.98e-06 | time 7628.85ms | mfu -100.00%
+iter 100: loss 6.2434 | lr 4.02e-04 | time 60.61ms | mfu 3.82%
+iter 200: loss 5.2803 | lr 8.00e-04 | time 61.03ms | mfu 3.81%
+step 250: train loss 4.8364, val loss 4.9131, val ppl 136.07, elapsed 23.5s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 300: loss 4.6996 | lr 7.98e-04 | time 63.55ms | mfu 3.80%
+iter 400: loss 4.4195 | lr 7.91e-04 | time 62.04ms | mfu 3.79%
+step 500: train loss 4.0821, val loss 4.3218, val ppl 75.32, elapsed 39.6s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 500: loss 4.2983 | lr 7.80e-04 | time 981.90ms | mfu 3.43%
+iter 600: loss 4.1927 | lr 7.64e-04 | time 61.70ms | mfu 3.47%
+iter 700: loss 4.0421 | lr 7.45e-04 | time 61.03ms | mfu 3.50%
+step 750: train loss 3.7451, val loss 4.0855, val ppl 59.47, elapsed 55.6s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 800: loss 3.9721 | lr 7.21e-04 | time 60.88ms | mfu 3.53%
+iter 900: loss 3.7683 | lr 6.95e-04 | time 60.72ms | mfu 3.56%
+step 1000: train loss 3.5391, val loss 3.9409, val ppl 51.46, elapsed 71.6s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 1000: loss 3.7219 | lr 6.64e-04 | time 967.21ms | mfu 3.22%
+iter 1100: loss 3.7252 | lr 6.32e-04 | time 59.77ms | mfu 3.29%
+iter 1200: loss 3.5624 | lr 5.96e-04 | time 61.23ms | mfu 3.34%
+step 1250: train loss 3.3961, val loss 3.8506, val ppl 47.02, elapsed 87.6s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 1300: loss 3.5921 | lr 5.59e-04 | time 60.70ms | mfu 3.39%
+iter 1400: loss 3.5610 | lr 5.20e-04 | time 60.66ms | mfu 3.43%
+step 1500: train loss 3.2920, val loss 3.7868, val ppl 44.11, elapsed 103.6s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 1500: loss 3.4198 | lr 4.80e-04 | time 982.53ms | mfu 3.11%
+iter 1600: loss 3.4415 | lr 4.40e-04 | time 61.70ms | mfu 3.17%
+iter 1700: loss 3.4428 | lr 4.00e-04 | time 61.21ms | mfu 3.23%
+step 1750: train loss 3.1959, val loss 3.7339, val ppl 41.84, elapsed 119.6s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 1800: loss 3.4582 | lr 3.60e-04 | time 61.74ms | mfu 3.28%
+iter 1900: loss 3.4038 | lr 3.21e-04 | time 60.11ms | mfu 3.34%
+step 2000: train loss 3.1219, val loss 3.6964, val ppl 40.30, elapsed 135.7s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 2000: loss 3.3534 | lr 2.84e-04 | time 988.13ms | mfu 3.03%
+iter 2100: loss 3.4205 | lr 2.48e-04 | time 62.59ms | mfu 3.10%
+iter 2200: loss 3.2829 | lr 2.16e-04 | time 60.14ms | mfu 3.17%
+step 2250: train loss 3.0728, val loss 3.6704, val ppl 39.27, elapsed 151.7s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 2300: loss 3.2608 | lr 1.85e-04 | time 61.29ms | mfu 3.23%
+iter 2400: loss 3.2056 | lr 1.59e-04 | time 61.43ms | mfu 3.29%
+step 2500: train loss 3.0265, val loss 3.6532, val ppl 38.60, elapsed 167.8s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 2500: loss 3.2207 | lr 1.35e-04 | time 978.62ms | mfu 2.98%
+iter 2600: loss 3.2202 | lr 1.16e-04 | time 60.62ms | mfu 3.06%
+iter 2700: loss 3.2659 | lr 1.00e-04 | time 61.45ms | mfu 3.13%
+step 2750: train loss 2.9987, val loss 3.6397, val ppl 38.08, elapsed 183.8s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 2800: loss 3.1894 | lr 8.90e-05 | time 62.40ms | mfu 3.19%
+iter 2900: loss 3.2156 | lr 8.23e-05 | time 60.58ms | mfu 3.25%
+step 3000: train loss 2.9811, val loss 3.6325, val ppl 37.81, elapsed 199.9s
+saving checkpoint to out-6m-epr-v2-s2026
+iter 3000: loss 3.1552 | lr 8.00e-05 | time 990.99ms | mfu 2.95%
+[DONE epr_v2_s2026] val_loss=3.6325 | PPL[256:512]=35.59 [1024:2048]=34.31 | Needle@1536=32.33%
+
+[SeedRun 4/8] Training epr_elastic_s2026 -> out-6m-epr-elastic-s2026
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-elastic-s2026
+Overriding: use_epr = True
+Overriding: use_wormhole = True
+Overriding: use_elastic_rbf = True
+Overriding: use_resonant_tunneling = False
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 2026
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=2026
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=True[v0=2.5], rbf=True[elastic=True], dil=True, vac=True, tunnel=False, bilat=False, nest=False)
+number of parameters: 5.77M (5,769,050)
+num decayed parameter tensors: 37, with 5,765,632 parameters
+num non-decayed parameter tensors: 37, with 3,418 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+step 0: train loss 8.3598, val loss 8.3616, val ppl 4279.36, elapsed 5.4s
+iter 0: loss 8.3631 | lr 3.98e-06 | time 7972.78ms | mfu -100.00%
+iter 100: loss 6.2462 | lr 4.02e-04 | time 61.39ms | mfu 3.77%
+iter 200: loss 5.2821 | lr 8.00e-04 | time 61.80ms | mfu 3.77%
+step 250: train loss 4.8373, val loss 4.9146, val ppl 136.27, elapsed 23.9s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 300: loss 4.7002 | lr 7.98e-04 | time 62.28ms | mfu 3.76%
+iter 400: loss 4.4208 | lr 7.91e-04 | time 61.53ms | mfu 3.76%
+step 500: train loss 4.0837, val loss 4.3219, val ppl 75.33, elapsed 40.0s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 500: loss 4.2981 | lr 7.80e-04 | time 974.60ms | mfu 3.41%
+iter 600: loss 4.1933 | lr 7.64e-04 | time 61.05ms | mfu 3.45%
+iter 700: loss 4.0549 | lr 7.45e-04 | time 61.08ms | mfu 3.48%
+step 750: train loss 3.7498, val loss 4.0933, val ppl 59.94, elapsed 56.2s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 800: loss 3.9738 | lr 7.21e-04 | time 62.13ms | mfu 3.50%
+iter 900: loss 3.7724 | lr 6.95e-04 | time 61.95ms | mfu 3.53%
+step 1000: train loss 3.5416, val loss 3.9481, val ppl 51.84, elapsed 72.2s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 1000: loss 3.7252 | lr 6.64e-04 | time 965.24ms | mfu 3.20%
+iter 1100: loss 3.7198 | lr 6.32e-04 | time 60.96ms | mfu 3.26%
+iter 1200: loss 3.5608 | lr 5.96e-04 | time 60.58ms | mfu 3.31%
+step 1250: train loss 3.3969, val loss 3.8550, val ppl 47.23, elapsed 88.2s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 1300: loss 3.5875 | lr 5.59e-04 | time 63.00ms | mfu 3.35%
+iter 1400: loss 3.5638 | lr 5.20e-04 | time 60.68ms | mfu 3.40%
+step 1500: train loss 3.2902, val loss 3.7889, val ppl 44.21, elapsed 104.2s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 1500: loss 3.4158 | lr 4.80e-04 | time 979.91ms | mfu 3.08%
+iter 1600: loss 3.4485 | lr 4.40e-04 | time 61.76ms | mfu 3.15%
+iter 1700: loss 3.4424 | lr 4.00e-04 | time 59.92ms | mfu 3.22%
+step 1750: train loss 3.1977, val loss 3.7384, val ppl 42.03, elapsed 120.3s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 1800: loss 3.4587 | lr 3.60e-04 | time 62.08ms | mfu 3.27%
+iter 1900: loss 3.4017 | lr 3.21e-04 | time 61.34ms | mfu 3.32%
+step 2000: train loss 3.1240, val loss 3.7024, val ppl 40.54, elapsed 136.3s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 2000: loss 3.3556 | lr 2.84e-04 | time 981.77ms | mfu 3.01%
+iter 2100: loss 3.4127 | lr 2.48e-04 | time 60.99ms | mfu 3.09%
+iter 2200: loss 3.2871 | lr 2.16e-04 | time 62.40ms | mfu 3.15%
+step 2250: train loss 3.0747, val loss 3.6735, val ppl 39.39, elapsed 152.4s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 2300: loss 3.2680 | lr 1.85e-04 | time 62.65ms | mfu 3.21%
+iter 2400: loss 3.2082 | lr 1.59e-04 | time 61.59ms | mfu 3.26%
+step 2500: train loss 3.0278, val loss 3.6577, val ppl 38.77, elapsed 168.6s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 2500: loss 3.2211 | lr 1.35e-04 | time 983.66ms | mfu 2.96%
+iter 2600: loss 3.2140 | lr 1.16e-04 | time 60.57ms | mfu 3.04%
+iter 2700: loss 3.2611 | lr 1.00e-04 | time 60.98ms | mfu 3.12%
+step 2750: train loss 3.0000, val loss 3.6433, val ppl 38.22, elapsed 184.6s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 2800: loss 3.1897 | lr 8.90e-05 | time 61.20ms | mfu 3.18%
+iter 2900: loss 3.2103 | lr 8.23e-05 | time 61.45ms | mfu 3.24%
+step 3000: train loss 2.9820, val loss 3.6360, val ppl 37.94, elapsed 200.7s
+saving checkpoint to out-6m-epr-elastic-s2026
+iter 3000: loss 3.1559 | lr 8.00e-05 | time 990.06ms | mfu 2.94%
+[DONE epr_elastic_s2026] val_loss=3.636 | PPL[256:512]=35.6 [1024:2048]=34.45 | Needle@1536=32.58%
+
+[SeedRun 5/8] Training llama2_s42 -> out-6m-base-s42
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-base-s42
+Overriding: use_epr = False
+Overriding: seed = 42
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=42
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Pure Llama 2 Baseline (Bit-Exact karpathy/llama2.c)
+number of parameters: 5.87M (5,868,800)
+num decayed parameter tensors: 43, with 5,865,472 parameters
+num non-decayed parameter tensors: 13, with 3,328 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+step 0: train loss 8.3607, val loss 8.3634, val ppl 4287.09, elapsed 3.8s
+iter 0: loss 8.3611 | lr 3.98e-06 | time 5537.44ms | mfu -100.00%
+iter 100: loss 6.2733 | lr 4.02e-04 | time 35.38ms | mfu 6.63%
+iter 200: loss 5.3793 | lr 8.00e-04 | time 36.54ms | mfu 6.61%
+step 250: train loss 5.0072, val loss 5.0596, val ppl 157.52, elapsed 14.8s
+saving checkpoint to out-6m-base-s42
+iter 300: loss 4.8921 | lr 7.98e-04 | time 34.58ms | mfu 6.62%
+iter 400: loss 4.5730 | lr 7.91e-04 | time 35.85ms | mfu 6.62%
+step 500: train loss 4.2728, val loss 4.4757, val ppl 87.85, elapsed 24.4s
+saving checkpoint to out-6m-base-s42
+iter 500: loss 4.4504 | lr 7.80e-04 | time 678.72ms | mfu 5.99%
+iter 600: loss 4.2085 | lr 7.64e-04 | time 35.29ms | mfu 6.05%
+iter 700: loss 4.1595 | lr 7.45e-04 | time 37.31ms | mfu 6.08%
+step 750: train loss 3.9545, val loss 4.2615, val ppl 70.92, elapsed 34.0s
+saving checkpoint to out-6m-base-s42
+iter 800: loss 4.0949 | lr 7.21e-04 | time 35.40ms | mfu 6.13%
+iter 900: loss 3.8993 | lr 6.95e-04 | time 36.12ms | mfu 6.17%
+step 1000: train loss 3.7453, val loss 4.1423, val ppl 62.95, elapsed 43.7s
+saving checkpoint to out-6m-base-s42
+iter 1000: loss 3.8420 | lr 6.64e-04 | time 667.73ms | mfu 5.59%
+iter 1100: loss 3.8794 | lr 6.32e-04 | time 34.62ms | mfu 5.70%
+iter 1200: loss 3.7782 | lr 5.96e-04 | time 36.12ms | mfu 5.78%
+step 1250: train loss 3.5883, val loss 4.0575, val ppl 57.83, elapsed 53.2s
+saving checkpoint to out-6m-base-s42
+iter 1300: loss 3.6903 | lr 5.59e-04 | time 34.44ms | mfu 5.89%
+iter 1400: loss 3.6499 | lr 5.20e-04 | time 35.66ms | mfu 5.95%
+step 1500: train loss 3.4710, val loss 3.9932, val ppl 54.23, elapsed 62.8s
+saving checkpoint to out-6m-base-s42
+iter 1500: loss 3.6778 | lr 4.80e-04 | time 677.09ms | mfu 5.39%
+iter 1600: loss 3.6512 | lr 4.40e-04 | time 34.46ms | mfu 5.53%
+iter 1700: loss 3.6055 | lr 4.00e-04 | time 37.06ms | mfu 5.61%
+step 1750: train loss 3.3780, val loss 3.9494, val ppl 51.90, elapsed 72.3s
+saving checkpoint to out-6m-base-s42
+iter 1800: loss 3.5346 | lr 3.60e-04 | time 34.98ms | mfu 5.72%
+iter 1900: loss 3.5116 | lr 3.21e-04 | time 35.62ms | mfu 5.81%
+step 2000: train loss 3.3073, val loss 3.9097, val ppl 49.89, elapsed 81.9s
+saving checkpoint to out-6m-base-s42
+iter 2000: loss 3.5372 | lr 2.84e-04 | time 673.20ms | mfu 5.26%
+iter 2100: loss 3.4889 | lr 2.48e-04 | time 35.24ms | mfu 5.40%
+iter 2200: loss 3.4177 | lr 2.16e-04 | time 37.00ms | mfu 5.50%
+step 2250: train loss 3.2484, val loss 3.8939, val ppl 49.10, elapsed 91.4s
+saving checkpoint to out-6m-base-s42
+iter 2300: loss 3.3886 | lr 1.85e-04 | time 34.42ms | mfu 5.63%
+iter 2400: loss 3.3627 | lr 1.59e-04 | time 36.83ms | mfu 5.70%
+step 2500: train loss 3.2068, val loss 3.8733, val ppl 48.10, elapsed 100.9s
+saving checkpoint to out-6m-base-s42
+iter 2500: loss 3.4689 | lr 1.35e-04 | time 678.51ms | mfu 5.17%
+iter 2600: loss 3.4412 | lr 1.16e-04 | time 34.39ms | mfu 5.33%
+iter 2700: loss 3.3200 | lr 1.00e-04 | time 37.69ms | mfu 5.42%
+step 2750: train loss 3.1718, val loss 3.8599, val ppl 47.46, elapsed 110.4s
+saving checkpoint to out-6m-base-s42
+iter 2800: loss 3.3844 | lr 8.90e-05 | time 34.36ms | mfu 5.56%
+iter 2900: loss 3.3966 | lr 8.23e-05 | time 35.55ms | mfu 5.66%
+step 3000: train loss 3.1509, val loss 3.8526, val ppl 47.12, elapsed 120.0s
+saving checkpoint to out-6m-base-s42
+iter 3000: loss 3.3951 | lr 8.00e-05 | time 680.67ms | mfu 5.13%
+[DONE llama2_s42] val_loss=3.8526 | PPL[256:512]=45.68 [1024:2048]=174.13 | Needle@1536=13.46%
+
+[SeedRun 6/8] Training fox_s42 -> out-6m-fox-s42
+
+=== Training FOX (seed=42) | decayed params: 5,871,616 ===
+num decayed parameter tensors: 49, with 5,871,616 parameters
+num non-decayed parameter tensors: 19, with 3,352 parameters
+using fused AdamW: True
+[FOX] step    0: val loss 8.3603, val ppl 4273.94, elapsed 5.8s
+[FOX] step  250: val loss 5.0322, val ppl 153.28, elapsed 21.5s
+[FOX] step  500: val loss 4.4066, val ppl 81.99, elapsed 35.6s
+[FOX] step  750: val loss 4.1949, val ppl 66.35, elapsed 49.7s
+[FOX] step 1000: val loss 4.0844, val ppl 59.40, elapsed 63.7s
+[FOX] step 1250: val loss 4.0013, val ppl 54.67, elapsed 77.7s
+[FOX] step 1500: val loss 3.9511, val ppl 51.99, elapsed 91.7s
+[FOX] step 1750: val loss 3.9033, val ppl 49.57, elapsed 105.6s
+[FOX] step 2000: val loss 3.8688, val ppl 47.89, elapsed 119.6s
+[FOX] step 2250: val loss 3.8423, val ppl 46.63, elapsed 133.6s
+[FOX] step 2500: val loss 3.8238, val ppl 45.78, elapsed 147.6s
+[FOX] step 2750: val loss 3.8116, val ppl 45.22, elapsed 161.6s
+[FOX] step 3000: val loss 3.8014, val ppl 44.76, elapsed 175.6s
+[DONE fox_s42] val_loss=3.8014 | PPL[256:512]=44.0 [1024:2048]=42.53 | Needle@1536=26.08%
+
+[SeedRun 7/8] Training epr_v2_s42 -> out-6m-epr-v2-s42
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-v2-s42
+Overriding: use_epr = True
+Overriding: use_wormhole = True
+Overriding: use_elastic_rbf = False
+Overriding: use_resonant_tunneling = False
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 42
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=42
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=True[v0=2.5], rbf=True[elastic=False], dil=True, vac=True, tunnel=False, bilat=False, nest=False)
+number of parameters: 5.77M (5,769,026)
+num decayed parameter tensors: 37, with 5,765,632 parameters
+num non-decayed parameter tensors: 31, with 3,394 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+step 0: train loss 8.3713, val loss 8.3709, val ppl 4319.46, elapsed 5.3s
+iter 0: loss 8.3652 | lr 3.98e-06 | time 7686.82ms | mfu -100.00%
+iter 100: loss 6.2048 | lr 4.02e-04 | time 61.02ms | mfu 3.79%
+iter 200: loss 5.2838 | lr 8.00e-04 | time 60.07ms | mfu 3.80%
+step 250: train loss 4.8364, val loss 4.9224, val ppl 137.33, elapsed 23.5s
+saving checkpoint to out-6m-epr-v2-s42
+iter 300: loss 4.7518 | lr 7.98e-04 | time 62.72ms | mfu 3.79%
+iter 400: loss 4.4215 | lr 7.91e-04 | time 61.87ms | mfu 3.78%
+step 500: train loss 4.0875, val loss 4.3155, val ppl 74.85, elapsed 39.6s
+saving checkpoint to out-6m-epr-v2-s42
+iter 500: loss 4.2200 | lr 7.80e-04 | time 990.79ms | mfu 3.43%
+iter 600: loss 4.0505 | lr 7.64e-04 | time 61.84ms | mfu 3.46%
+iter 700: loss 4.0386 | lr 7.45e-04 | time 61.32ms | mfu 3.49%
+step 750: train loss 3.7526, val loss 4.0857, val ppl 59.49, elapsed 55.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 800: loss 3.8658 | lr 7.21e-04 | time 61.64ms | mfu 3.52%
+iter 900: loss 3.7580 | lr 6.95e-04 | time 60.92ms | mfu 3.54%
+step 1000: train loss 3.5370, val loss 3.9476, val ppl 51.81, elapsed 71.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 1000: loss 3.8391 | lr 6.64e-04 | time 967.62ms | mfu 3.21%
+iter 1100: loss 3.7117 | lr 6.32e-04 | time 61.12ms | mfu 3.27%
+iter 1200: loss 3.7111 | lr 5.96e-04 | time 60.18ms | mfu 3.33%
+step 1250: train loss 3.4009, val loss 3.8540, val ppl 47.18, elapsed 87.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 1300: loss 3.5573 | lr 5.59e-04 | time 61.40ms | mfu 3.37%
+iter 1400: loss 3.5459 | lr 5.20e-04 | time 60.59ms | mfu 3.42%
+step 1500: train loss 3.2923, val loss 3.7891, val ppl 44.22, elapsed 103.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 1500: loss 3.5287 | lr 4.80e-04 | time 971.63ms | mfu 3.10%
+iter 1600: loss 3.5083 | lr 4.40e-04 | time 60.81ms | mfu 3.17%
+iter 1700: loss 3.4277 | lr 4.00e-04 | time 60.50ms | mfu 3.23%
+step 1750: train loss 3.2025, val loss 3.7362, val ppl 41.94, elapsed 119.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 1800: loss 3.4609 | lr 3.60e-04 | time 61.56ms | mfu 3.29%
+iter 1900: loss 3.2889 | lr 3.21e-04 | time 60.87ms | mfu 3.34%
+step 2000: train loss 3.1313, val loss 3.6995, val ppl 40.43, elapsed 135.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 2000: loss 3.4219 | lr 2.84e-04 | time 973.99ms | mfu 3.03%
+iter 2100: loss 3.3448 | lr 2.48e-04 | time 60.35ms | mfu 3.11%
+iter 2200: loss 3.3380 | lr 2.16e-04 | time 60.05ms | mfu 3.18%
+step 2250: train loss 3.0752, val loss 3.6763, val ppl 39.50, elapsed 151.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 2300: loss 3.3277 | lr 1.85e-04 | time 61.91ms | mfu 3.24%
+iter 2400: loss 3.2636 | lr 1.59e-04 | time 60.43ms | mfu 3.30%
+step 2500: train loss 3.0322, val loss 3.6557, val ppl 38.70, elapsed 167.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 2500: loss 3.3065 | lr 1.35e-04 | time 962.96ms | mfu 2.99%
+iter 2600: loss 3.3076 | lr 1.16e-04 | time 60.38ms | mfu 3.08%
+iter 2700: loss 3.2743 | lr 1.00e-04 | time 61.12ms | mfu 3.15%
+step 2750: train loss 3.0019, val loss 3.6430, val ppl 38.21, elapsed 183.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 2800: loss 3.1793 | lr 8.90e-05 | time 62.36ms | mfu 3.20%
+iter 2900: loss 3.2256 | lr 8.23e-05 | time 61.15ms | mfu 3.26%
+step 3000: train loss 2.9788, val loss 3.6339, val ppl 37.86, elapsed 199.7s
+saving checkpoint to out-6m-epr-v2-s42
+iter 3000: loss 3.2415 | lr 8.00e-05 | time 972.29ms | mfu 2.96%
+[DONE epr_v2_s42] val_loss=3.6339 | PPL[256:512]=35.69 [1024:2048]=34.4 | Needle@1536=31.58%
+
+[SeedRun 8/8] Training epr_elastic_s42 -> out-6m-epr-elastic-s42
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-elastic-s42
+Overriding: use_epr = True
+Overriding: use_wormhole = True
+Overriding: use_elastic_rbf = True
+Overriding: use_resonant_tunneling = False
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 42
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=42
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=True[v0=2.5], rbf=True[elastic=True], dil=True, vac=True, tunnel=False, bilat=False, nest=False)
+number of parameters: 5.77M (5,769,050)
+num decayed parameter tensors: 37, with 5,765,632 parameters
+num non-decayed parameter tensors: 37, with 3,418 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+step 0: train loss 8.3713, val loss 8.3707, val ppl 4318.80, elapsed 5.3s
+iter 0: loss 8.3654 | lr 3.98e-06 | time 7897.53ms | mfu -100.00%
+iter 100: loss 6.2070 | lr 4.02e-04 | time 61.50ms | mfu 3.76%
+iter 200: loss 5.2878 | lr 8.00e-04 | time 61.33ms | mfu 3.76%
+step 250: train loss 4.8399, val loss 4.9253, val ppl 137.73, elapsed 23.8s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 300: loss 4.7557 | lr 7.98e-04 | time 61.53ms | mfu 3.76%
+iter 400: loss 4.4220 | lr 7.91e-04 | time 61.87ms | mfu 3.76%
+step 500: train loss 4.0887, val loss 4.3183, val ppl 75.06, elapsed 39.9s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 500: loss 4.2225 | lr 7.80e-04 | time 989.51ms | mfu 3.41%
+iter 600: loss 4.0569 | lr 7.64e-04 | time 61.03ms | mfu 3.45%
+iter 700: loss 4.0420 | lr 7.45e-04 | time 62.34ms | mfu 3.47%
+step 750: train loss 3.7569, val loss 4.0943, val ppl 60.00, elapsed 56.0s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 800: loss 3.8700 | lr 7.21e-04 | time 61.24ms | mfu 3.50%
+iter 900: loss 3.7620 | lr 6.95e-04 | time 60.57ms | mfu 3.53%
+step 1000: train loss 3.5407, val loss 3.9613, val ppl 52.53, elapsed 72.0s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 1000: loss 3.8433 | lr 6.64e-04 | time 980.17ms | mfu 3.20%
+iter 1100: loss 3.7217 | lr 6.32e-04 | time 61.13ms | mfu 3.26%
+iter 1200: loss 3.7086 | lr 5.96e-04 | time 60.50ms | mfu 3.32%
+step 1250: train loss 3.4040, val loss 3.8667, val ppl 47.79, elapsed 88.0s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 1300: loss 3.5655 | lr 5.59e-04 | time 61.14ms | mfu 3.37%
+iter 1400: loss 3.5498 | lr 5.20e-04 | time 61.60ms | mfu 3.40%
+step 1500: train loss 3.2934, val loss 3.8025, val ppl 44.81, elapsed 104.0s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 1500: loss 3.5312 | lr 4.80e-04 | time 967.30ms | mfu 3.09%
+iter 1600: loss 3.5084 | lr 4.40e-04 | time 60.72ms | mfu 3.16%
+iter 1700: loss 3.4246 | lr 4.00e-04 | time 61.94ms | mfu 3.22%
+step 1750: train loss 3.2025, val loss 3.7469, val ppl 42.39, elapsed 120.0s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 1800: loss 3.4537 | lr 3.60e-04 | time 62.30ms | mfu 3.27%
+iter 1900: loss 3.2949 | lr 3.21e-04 | time 60.75ms | mfu 3.32%
+step 2000: train loss 3.1316, val loss 3.7095, val ppl 40.83, elapsed 136.1s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 2000: loss 3.4296 | lr 2.84e-04 | time 984.91ms | mfu 3.01%
+iter 2100: loss 3.3449 | lr 2.48e-04 | time 61.73ms | mfu 3.09%
+iter 2200: loss 3.3352 | lr 2.16e-04 | time 60.92ms | mfu 3.16%
+step 2250: train loss 3.0742, val loss 3.6841, val ppl 39.81, elapsed 152.2s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 2300: loss 3.3309 | lr 1.85e-04 | time 61.36ms | mfu 3.22%
+iter 2400: loss 3.2693 | lr 1.59e-04 | time 61.49ms | mfu 3.27%
+step 2500: train loss 3.0306, val loss 3.6644, val ppl 39.03, elapsed 168.3s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 2500: loss 3.3019 | lr 1.35e-04 | time 977.14ms | mfu 2.97%
+iter 2600: loss 3.3096 | lr 1.16e-04 | time 61.28ms | mfu 3.05%
+iter 2700: loss 3.2623 | lr 1.00e-04 | time 62.08ms | mfu 3.12%
+step 2750: train loss 2.9998, val loss 3.6500, val ppl 38.48, elapsed 184.4s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 2800: loss 3.1858 | lr 8.90e-05 | time 62.54ms | mfu 3.18%
+iter 2900: loss 3.2214 | lr 8.23e-05 | time 60.73ms | mfu 3.24%
+step 3000: train loss 2.9775, val loss 3.6424, val ppl 38.18, elapsed 200.5s
+saving checkpoint to out-6m-epr-elastic-s42
+iter 3000: loss 3.2354 | lr 8.00e-05 | time 966.38ms | mfu 2.94%
+[DONE epr_elastic_s42] val_loss=3.6424 | PPL[256:512]=36.07 [1024:2048]=34.71 | Needle@1536=30.92%
+
+>>> Running NTK Extrapolation on Pure Llama 2: /usr/bin/python3 eval_extrapolation.py out-6m-base-s1337 --lengths=256,512,1024,2048 --rope_mode=ntk
+Checkpoint                       | Train T |    RoPE |    PPL@256 |    PPL@512 |   PPL@1024 |   PPL@2048
+--------------------------------------------------------------------------------------------------------
+out-6m-base-s1337                |     512 |     ntk |      49.40 |      48.04 |      48.13 |      50.92
+  └─ Bucketed PPL (no dilution)  | [0:256]:  51.66 | [256:512]:  49.41 | [512:1024]:  48.80 | [1024:2048]:  52.22
+
+
+>>> Running YaRN Extrapolation on Pure Llama 2: /usr/bin/python3 eval_extrapolation.py out-6m-base-s1337 --lengths=256,512,1024,2048 --rope_mode=yarn
+Checkpoint                       | Train T |    RoPE |    PPL@256 |    PPL@512 |   PPL@1024 |   PPL@2048
+--------------------------------------------------------------------------------------------------------
+out-6m-base-s1337                |     512 |    yarn |      49.40 |      48.04 |      54.00 |      79.76
+  └─ Bucketed PPL (no dilution)  | [0:256]:  50.05 | [256:512]:  47.38 | [512:1024]:  51.82 | [1024:2048]: 126.63
+
+
+>>> Running Stateful EPRKVCache Eviction & Throughput Sweep (EPR v2.0): /usr/bin/python3 eval_kv_eviction.py out-6m-epr-v2-s1337
+=== Asymmetric EPRKVCache Eviction Tradeoff (out-6m-epr-v2-s1337, H=4, WH=1) ===
+ Damped Window W | Saved @2K | Saved @8K | Tail PPL [1K:2K] |   Needle@1536 (200 trials) | Decode tok/s
+----------------------------------------------------------------------------------------------------------
+        Full (∞) |      0.0% |      0.0% |            33.91 |  31.8±1.9% (ΔNLL +0.50) |       83.9/s
+         W = 512 |     56.0% |     70.2% |            33.91 |  31.8±1.9% (ΔNLL +0.50) |       81.7/s
+         W = 256 |     65.5% |     72.6% |            33.91 |  31.8±1.9% (ΔNLL +0.50) |       68.4/s
+         W = 128 |     70.2% |     73.8% |            33.96 |  31.7±2.0% (ΔNLL +0.50) |       70.4/s
+          W = 64 |     72.6% |     74.4% |            34.22 |  32.3±1.9% (ΔNLL +0.50) |       70.0/s
+
+
+>>> Running Stateful EPRKVCache Eviction & Throughput Sweep (EPR + Mass-Elastic RBF): /usr/bin/python3 eval_kv_eviction.py out-6m-epr-elastic-s1337
+=== Asymmetric EPRKVCache Eviction Tradeoff (out-6m-epr-elastic-s1337, H=4, WH=1) ===
+ Damped Window W | Saved @2K | Saved @8K | Tail PPL [1K:2K] |   Needle@1536 (200 trials) | Decode tok/s
+----------------------------------------------------------------------------------------------------------
+        Full (∞) |      0.0% |      0.0% |            34.02 |  32.1±1.9% (ΔNLL +0.49) |       81.1/s
+         W = 512 |     56.0% |     70.2% |            34.02 |  32.1±1.9% (ΔNLL +0.49) |       78.6/s
+         W = 256 |     65.5% |     72.6% |            34.03 |  32.1±1.9% (ΔNLL +0.49) |       67.9/s
+         W = 128 |     70.2% |     73.8% |            34.07 |  32.4±1.9% (ΔNLL +0.49) |       68.6/s
+          W = 64 |     72.6% |     74.4% |            34.31 |  32.4±1.9% (ΔNLL +0.48) |       68.7/s
+
+
+>>> Running OOD Overconfidence & Zero-Cost Vacuum Abstention Probe: /usr/bin/python3 eval_ood_hallucination.py out-6m-base-s1337 out-6m-alibi-s1337 out-6m-fox-s1337 out-6m-epr-v2-s1337 out-6m-epr-elastic-s1337 out-6m-epr-tunnel-nowh-s1337
+=== [1] OOD Scrambled-Context Overconfidence & Entropy Calibration (T=1024, Tail [512:1024]) ===
+Checkpoint                 | In-Dist P_max | In-Dist Ent | OOD P_max (↓) | OOD Ent (↑) | ΔEnt (OOD-ID)
+------------------------------------------------------------------------------------------------------
+out-6m-base-s1337          |        29.96% |      3.700  |        38.02% |      2.997  |       -0.703
+out-6m-alibi-s1337         |        36.58% |      3.290  |        39.06% |      3.002  |       -0.288
+out-6m-fox-s1337           |        37.13% |      3.257  |        37.82% |      3.044  |       -0.213
+out-6m-epr-v2-s1337        |        40.24% |      3.101  |        38.69% |      3.031  |       -0.070
+out-6m-epr-elastic-s1337   |        40.13% |      3.105  |        39.21% |      3.020  |       -0.085
+out-6m-epr-tunnel-nowh-s1337 |        39.54% |      3.133  |        36.33% |      3.391  |       +0.257
+
+=== [2] Zero-Cost Unanswerable Context Detection via Wormhole Vacuum Silence (Dist=1024, 150 trials) ===
+EPR Checkpoint             |  Grounded Vac% |  Unanswerable Vac% |   Vac Shift | Abstention AUROC
+--------------------------------------------------------------------------------------------------
+out-6m-epr-v2-s1337        |         39.09% |             41.02% |      +1.93% |           0.5918
+out-6m-epr-elastic-s1337   |         37.03% |             38.89% |      +1.86% |           0.5911
+out-6m-epr-tunnel-nowh-s1337 |         29.17% |             29.18% |      +0.01% |           0.5010
+
+
+>>> Running Learned EPR v2.0 Field Diagnostics: /usr/bin/python3 inspect_fields.py --checkpoint=out-6m-epr-v2-s1337/ckpt.pt
+Traceback (most recent call last):
+  File "/content/epr-attention/inspect_fields.py", line 31, in <module>
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+  File "/usr/local/lib/python3.13/dist-packages/torch/serialization.py", line 1565, in load
+    with _open_file_like(f, "rb") as opened_file:
+         ~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/usr/local/lib/python3.13/dist-packages/torch/serialization.py", line 795, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/usr/local/lib/python3.13/dist-packages/torch/serialization.py", line 776, in __init__
+    super().__init__(open(name, mode))  # noqa: SIM115
+                     ~~~~^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '--checkpoint=out-6m-epr-v2-s1337/ckpt.pt'
+Traceback (most recent call last):
+  File "/content/colab_phase2_multiseed_and_kv.py", line 140, in <module>
+    run_capture("Learned EPR v2.0 Field Diagnostics", [
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        sys.executable, "inspect_fields.py", "--checkpoint=out-6m-epr-v2-s1337/ckpt.pt"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ])
+    ^^
+  File "/content/colab_phase2_multiseed_and_kv.py", line 117, in run_capture
+    out = subprocess.check_output(cmd, text=True)
+  File "/usr/lib/python3.13/subprocess.py", line 473, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               **kwargs).stdout
+               ^^^^^^^^^
+  File "/usr/lib/python3.13/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/usr/bin/python3', 'inspect_fields.py', '--checkpoint=out-6m-epr-v2-s1337/ckpt.pt']' returned non-zero exit status 1.

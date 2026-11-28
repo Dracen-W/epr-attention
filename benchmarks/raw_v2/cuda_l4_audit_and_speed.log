@@ -1,0 +1,104 @@
+=== [1] Running 8-Pillar CUDA & Mathematical Audit (audit_all.py) ===
+
+==============================================================================
+[AUDIT 1] Bit-Exact Pure Llama 2 Control Baseline Check
+==============================================================================
+  [PASS] Pure Llama 2 backbone routes strictly to untouched karpathy/llama2.c Attention.
+
+==============================================================================
+[AUDIT 2] Textbook Mathematical Equivalence (Forward + Backward Autograd, fp64)
+==============================================================================
+  [PASS] EPR v2.0 Distilled (D=32: 24+6+2)      | d_r=24, d_g= 6 | fp64 fwd=2.22e-16 | bwd=5.33e-15
+  [PASS] EPR v2.0 Distilled (D=64: 48+14+2)     | d_r=48, d_g=14 | fp64 fwd=2.78e-16 | bwd=7.11e-15
+  [PASS] EPR v2.0 GQA (H=8, KV=2, half_split)   | d_r=24, d_g= 6 | fp64 fwd=2.78e-16 | bwd=1.07e-14
+  [PASS] Polished #1: Mass-Elastic RBF (D=64)   | d_r=48, d_g=14 | fp64 fwd=3.33e-16 | bwd=7.11e-15
+  [PASS] Polished #1: Mass-Elastic RBF (GQA)    | d_r=24, d_g= 6 | fp64 fwd=3.33e-16 | bwd=7.11e-15
+  [PASS] Polished #2: Resonant Tunneling        | d_r=24, d_g= 6 | fp64 fwd=2.22e-16 | bwd=3.55e-15
+  [PASS] Combined: Elastic-RBF + Tunneling      | d_r=24, d_g= 6 | fp64 fwd=2.22e-16 | bwd=5.33e-15
+  [PASS] Legacy: Bilateral Mass + Nested Time   | d_r=24, d_g= 6 | fp64 fwd=2.22e-16 | bwd=3.55e-15
+  [PASS] Ablation: No Wormhole                  | d_r=24, d_g= 6 | fp64 fwd=1.94e-16 | bwd=2.66e-15
+  [PASS] Ablation: No Base RBF                  | d_r=24, d_g= 6 | fp64 fwd=1.67e-16 | bwd=3.55e-15
+  [PASS] Ablation: No Vacuum Floor              | d_r=24, d_g= 6 | fp64 fwd=3.33e-16 | bwd=6.22e-15
+
+==============================================================================
+[AUDIT 3] 4-Layer Strict Causality / Anti-Cheating Audit (Fresh EPR v2.0 Distilled, float64)
+==============================================================================
+  [PASS] 3a. Forward Future Perturbation (T= 32, cut=16)   | max_diff = 0.00e+00
+  [PASS] 3a. Forward Future Perturbation (T= 64, cut=32)   | max_diff = 0.00e+00
+  [PASS] 3a. Forward Future Perturbation (T=128, cut=64)   | max_diff = 0.00e+00
+  [PASS] 3b. Physical Truncation Equivalence (fp64)          | max_diff = 4.16e-16
+  [PASS] 3c. Backward Jacobian Isolation (s > t)             | future_grad = 0.00e+00 (past=3.91e+01)
+  [PASS] 3d. Autoregressive Step-by-Step vs Parallel (fp64)  | max_diff = 1.33e-15
+
+==============================================================================
+[AUDIT 3] 4-Layer Strict Causality / Anti-Cheating Audit (Fresh EPR + Elastic-RBF + Resonant Tunneling, float64)
+==============================================================================
+  [PASS] 3a. Forward Future Perturbation (T= 32, cut=16)   | max_diff = 0.00e+00
+  [PASS] 3a. Forward Future Perturbation (T= 64, cut=32)   | max_diff = 0.00e+00
+  [PASS] 3a. Forward Future Perturbation (T=128, cut=64)   | max_diff = 0.00e+00
+  [PASS] 3b. Physical Truncation Equivalence (fp64)          | max_diff = 0.00e+00
+  [PASS] 3c. Backward Jacobian Isolation (s > t)             | future_grad = 0.00e+00 (past=4.84e+01)
+  [PASS] 3d. Autoregressive Step-by-Step vs Parallel (fp64)  | max_diff = 8.88e-16
+
+==============================================================================
+[AUDIT 4] Gradient Health (v2.0 + Elastic-RBF + Tunneling) & 4x Extrapolation Stress
+==============================================================================
+  [PASS] 4a. EPR v2.0 Distilled               | All 35 parameter tensors receive finite non-zero grads.
+  [PASS] 4a. EPR + Elastic-RBF + Tunneling    | All 44 parameter tensors receive finite non-zero grads.
+  [PASS] 4b. Zero-shot 4x length extrapolation (32 -> 128) & repetition stress finite (loss=5.1032).
+
+==============================================================================
+[AUDIT 5] Unified Hardware Alignment (d_r+d_g+2 == D) & Parameter Budget
+==============================================================================
+  [PASS] head_dim= 16 -> d_r=10 fiber + d_g= 4 base + 2 ==  16 (zero V padding)
+  [PASS] head_dim= 32 -> d_r=24 fiber + d_g= 6 base + 2 ==  32 (zero V padding)
+  [PASS] head_dim= 48 -> d_r=36 fiber + d_g=10 base + 2 ==  48 (zero V padding)
+  [PASS] head_dim= 64 -> d_r=48 fiber + d_g=14 base + 2 ==  64 (zero V padding)
+  [PASS] head_dim= 96 -> d_r=72 fiber + d_g=22 base + 2 ==  96 (zero V padding)
+  [PASS] head_dim=128 -> d_r=96 fiber + d_g=30 base + 2 == 128 (zero V padding)
+  [PASS] 1.3M (D=32) | Base: 1,328,256 | EPR v2.0: 1,311,404 (-16,852) | Elastic-RBF: 1,311,420 (-16,836)
+  [PASS] 6.0M (D=64) | Base: 5,868,800 | EPR v2.0: 5,769,026 (-99,774) | Elastic-RBF: 5,769,050 (-99,750)
+
+==============================================================================
+[AUDIT 6] Damped Pauli Repulsion & End-to-End Cached `generate()` Parity
+==============================================================================
+  [PASS] 6a. Transformer.generate(use_kv_cache=True) matches full-recompute generation bit-for-bit!
+  [PASS] 6b. Strong Pauli repulsion (alpha=50) suppressed immediate repeat token 7 -> 32.
+
+==============================================================================
+[AUDIT 7] CUDA bf16 FlexAttention Parity & Future Perturbation Audit
+==============================================================================
+  [PASS] EPR v2.0 Distilled (MHA)     | bf16 parity=1.95e-03 | future_leak=0.00e+00
+  [PASS] EPR + Elastic-RBF (GQA)      | bf16 parity=1.95e-03 | future_leak=0.00e+00
+  [PASS] EPR + Resonant Tunneling     | bf16 parity=1.95e-03 | future_leak=0.00e+00
+
+==============================================================================
+[AUDIT 8] Stateful EPRKVCache (Cumulative Tau) & Asymmetric Eviction Audit
+==============================================================================
+  [PASS] MHA Distilled (4H/4KV, 1 WH)           | step=4.44e-16 | prefill+dec=3.89e-16 | pre-evict=4.44e-16
+  [PASS] MHA Elastic-RBF + Tunnel (4H/4KV)      | step=4.44e-16 | prefill+dec=3.89e-16 | pre-evict=3.89e-16
+  [PASS] GQA half_split (8H/2KV, 4 WH, ElRBF)   | step=8.33e-16 | prefill+dec=5.55e-16 | pre-evict=8.33e-16
+
+==============================================================================
+ALL 8 UNIFIED AUDIT PILLARS PASSED WITH ZERO LEAKS AND MACHINE-PRECISION PARITY!
+==============================================================================
+
+=== [2] Running CUDA FlexAttention Throughput & Memory Benchmark (bench_epr_speed.py) ===
+
+--- Stateful Asymmetric EPRKVCache Memory Savings (window_size=128, incl. tau_damped) ---
+  6M Edge MHA (4H, 1 WH, 2K)         | Standard KV:  12.00 MB -> EPR KV:   3.57 MB | Saved:  70.2%
+  6M Edge MHA (4H, 1 WH, 8K)         | Standard KV:  48.00 MB -> EPR KV:  12.57 MB | Saved:  73.8%
+  28M Edge MHA (8H, 1 WH, 8K)        | Standard KV:  96.00 MB -> EPR KV:  13.33 MB | Saved:  86.1%
+  1.1B GQA (32Q/4KV, 1 WH grp, 8K)   | Standard KV: 176.00 MB -> EPR KV:  46.32 MB | Saved:  73.7%
+
+--- 6M EPR (dim=256, 6L, 4Q/4KV, T=1024, B=8) ---
+  Pure Llama 2 (FA2/SDPA)      | Params:   6.16M | Train:   333861 tok/s | Peak VRAM:   838.5 MB
+  EPR v2.0 Distilled (Flex)    | Params:   6.06M | Train:   197855 tok/s | Peak VRAM:   930.2 MB
+  EPR + Elastic-RBF (Flex)     | Params:   6.06M | Train:   185246 tok/s | Peak VRAM:   932.1 MB
+  EPR + Res. Tunneling (Flex)  | Params:   6.06M | Train:    27848 tok/s | Peak VRAM:   930.2 MB
+
+--- 28M EPR (dim=512, 6L, 8Q/8KV, T=1024, B=4) ---
+  Pure Llama 2 (FA2/SDPA)      | Params:  28.84M | Train:   119035 tok/s | Peak VRAM:  1163.4 MB
+  EPR v2.0 Distilled (Flex)    | Params:  28.45M | Train:    98070 tok/s | Peak VRAM:  1252.3 MB
+  EPR + Elastic-RBF (Flex)     | Params:  28.45M | Train:    88806 tok/s | Peak VRAM:  1254.2 MB
+  EPR + Res. Tunneling (Flex)  | Params:  28.45M | Train:    15059 tok/s | Peak VRAM:  1252.3 MB

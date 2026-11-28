@@ -25,6 +25,8 @@ temperature = 0.7
 top_k = 40
 pauli_alpha = 1.8      # Damped Pauli Repulsion strength (0.0 disables repulsion)
 pauli_halflife = 16.0  # Repulsion decay half-life in tokens (short-range anti-loop)
+use_kv_cache = True    # Stateful EPRKVCache / KV-cache incremental decoding
+damped_window = -1     # Sliding-window horizon W (-1 keeps full context)
 tokenizer = ""
 seed = 42
 device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
@@ -61,8 +63,10 @@ if compile:
 total_params = sum(p.numel() for p in model.parameters())
 print(
     f"Loaded {checkpoint} | params: {total_params/1e6:.2f}M | "
-    f"gravity={gptconf.use_unified_gravity} | wormhole={gptconf.use_wormhole} | "
-    f"pauli_alpha={pauli_alpha} (half-life={pauli_halflife}t)"
+    f"epr={gptconf.use_epr} (wh={gptconf.use_wormhole}, elastic={gptconf.use_elastic_rbf}, "
+    f"tunnel={gptconf.use_resonant_tunneling}) | "
+    f"pauli_alpha={pauli_alpha} (half-life={pauli_halflife}t) | "
+    f"kv_cache={use_kv_cache} (W={'inf' if damped_window < 0 else damped_window})"
 )
 
 # Resolve tokenizer (HF BPE / char / Llama 2 SentencePiece)
@@ -100,11 +104,13 @@ start_ids = encode(start) or [0]
 x = torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...]
 
 with torch.no_grad(), ctx:
+    win = None if damped_window < 0 else damped_window
     for _ in range(num_samples):
         y = model.generate(
             x, max_new_tokens,
             temperature=temperature, top_k=top_k,
             pauli_alpha=pauli_alpha, pauli_halflife=pauli_halflife,
+            use_kv_cache=use_kv_cache, damped_window=win,
         )
         print(decode(y[0].tolist()))
         print("-" * 60)

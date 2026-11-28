@@ -6,6 +6,9 @@
 
 </div>
 
+> [!NOTE]
+> **`v1.0` 历史实验归档说明（`v6-wormhole`）**：本页完整保留 `v1.0` 阶段（`bilat=True, nest=True`、全窗口平均 `PPL@L` 与早期 64 次捞针扫描，对应 [`releases/tag/1.0`](https://github.com/Dracen-W/epr-attention/releases/tag/1.0)）的多语料原始记录。关于 **`v2.0` 精简统一架构**、**3 随机种子均值±标准差（`Mean ± Std`）**、**384 序列无稀释分段外推**、**200 次对齐捞针 + 反事实双键绑定** 以及 **OOD 幻觉校准 / 零成本虫洞拒答 AUROC**，请直接参阅主文档 [`README_zh.md`](../README_zh.md)。
+
 本页面完整归档了 **统一纤维—引力与 ER=EPR 虫洞注意力机制（`v6-wormhole`）** 在 **6 大基准任务**（`WikiText-2`、`TinyStories`、`FineWeb-Edu`、`RealWorld 16K`、`WMT14 英译德`、`WMT14 三语零样本德法互译`）、**3 档参数规模**（`1.3M → 6.8M/7.9M → 27.6M`）、**SOTA 强基线对撞**、**同耗时（Iso-Wallclock）PPL 效率** 以及 **真实生成与译文样本** 上的全部实测数据，并完整标注了每组实验的架构与训练超参数。
 
 ---

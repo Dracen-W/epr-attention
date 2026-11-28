@@ -1,0 +1,746 @@
+Command exited with code 0.
+
+Command output:
+
+====================================================================================
+[1/8] Training Pure Llama 2 (RoPE) -> out-6m-base-s1337
+====================================================================================
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-base-s1337
+Overriding: use_epr = False
+Overriding: seed = 1337
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=1337
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Pure Llama 2 Baseline (Bit-Exact karpathy/llama2.c)
+number of parameters: 5.87M (5,868,800)
+num decayed parameter tensors: 43, with 5,865,472 parameters
+num non-decayed parameter tensors: 13, with 3,328 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+W1127 13:50:13.041000 3601 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+step 0: train loss 8.3627, val loss 8.3620, val ppl 4281.26, elapsed 11.0s
+iter 0: loss 8.3621 | lr 3.98e-06 | time 28289.78ms | mfu -100.00%
+iter 100: loss 6.2492 | lr 4.02e-04 | time 33.83ms | mfu 6.93%
+iter 200: loss 5.3514 | lr 8.00e-04 | time 34.49ms | mfu 6.92%
+step 250: train loss 4.9953, val loss 5.0557, val ppl 156.92, elapsed 37.3s
+saving checkpoint to out-6m-base-s1337
+iter 300: loss 4.8940 | lr 7.98e-04 | time 33.55ms | mfu 6.93%
+iter 400: loss 4.5822 | lr 7.91e-04 | time 35.30ms | mfu 6.90%
+step 500: train loss 4.3108, val loss 4.5028, val ppl 90.27, elapsed 46.5s
+saving checkpoint to out-6m-base-s1337
+iter 500: loss 4.4594 | lr 7.80e-04 | time 671.10ms | mfu 6.24%
+iter 600: loss 4.3214 | lr 7.64e-04 | time 34.35ms | mfu 6.30%
+iter 700: loss 4.1972 | lr 7.45e-04 | time 36.65ms | mfu 6.31%
+step 750: train loss 3.9741, val loss 4.2662, val ppl 71.25, elapsed 55.9s
+saving checkpoint to out-6m-base-s1337
+iter 800: loss 3.9890 | lr 7.21e-04 | time 34.27ms | mfu 6.36%
+iter 900: loss 3.9098 | lr 6.95e-04 | time 36.50ms | mfu 6.37%
+step 1000: train loss 3.7556, val loss 4.1386, val ppl 62.71, elapsed 65.3s
+saving checkpoint to out-6m-base-s1337
+iter 1000: loss 3.9133 | lr 6.64e-04 | time 686.43ms | mfu 5.77%
+iter 1100: loss 3.7813 | lr 6.32e-04 | time 34.60ms | mfu 5.87%
+iter 1200: loss 3.8157 | lr 5.96e-04 | time 36.63ms | mfu 5.92%
+step 1250: train loss 3.6042, val loss 4.0627, val ppl 58.13, elapsed 74.8s
+saving checkpoint to out-6m-base-s1337
+iter 1300: loss 3.7772 | lr 5.59e-04 | time 34.46ms | mfu 6.01%
+iter 1400: loss 3.7397 | lr 5.20e-04 | time 36.40ms | mfu 6.05%
+step 1500: train loss 3.4924, val loss 4.0072, val ppl 54.99, elapsed 84.3s
+saving checkpoint to out-6m-base-s1337
+iter 1500: loss 3.6364 | lr 4.80e-04 | time 692.26ms | mfu 5.48%
+iter 1600: loss 3.6496 | lr 4.40e-04 | time 35.53ms | mfu 5.59%
+iter 1700: loss 3.5739 | lr 4.00e-04 | time 37.22ms | mfu 5.66%
+step 1750: train loss 3.4026, val loss 3.9657, val ppl 52.76, elapsed 93.9s
+saving checkpoint to out-6m-base-s1337
+iter 1800: loss 3.5342 | lr 3.60e-04 | time 34.73ms | mfu 5.77%
+iter 1900: loss 3.6409 | lr 3.21e-04 | time 36.38ms | mfu 5.84%
+step 2000: train loss 3.3148, val loss 3.9305, val ppl 50.93, elapsed 103.5s
+saving checkpoint to out-6m-base-s1337
+iter 2000: loss 3.6006 | lr 2.84e-04 | time 677.83ms | mfu 5.29%
+iter 2100: loss 3.5156 | lr 2.48e-04 | time 34.93ms | mfu 5.43%
+iter 2200: loss 3.4480 | lr 2.16e-04 | time 36.80ms | mfu 5.53%
+step 2250: train loss 3.2622, val loss 3.9094, val ppl 49.87, elapsed 113.0s
+saving checkpoint to out-6m-base-s1337
+iter 2300: loss 3.4546 | lr 1.85e-04 | time 34.45ms | mfu 5.65%
+iter 2400: loss 3.5329 | lr 1.59e-04 | time 35.70ms | mfu 5.75%
+step 2500: train loss 3.2131, val loss 3.8842, val ppl 48.63, elapsed 122.5s
+saving checkpoint to out-6m-base-s1337
+iter 2500: loss 3.4654 | lr 1.35e-04 | time 688.45ms | mfu 5.21%
+iter 2600: loss 3.4871 | lr 1.16e-04 | time 34.38ms | mfu 5.37%
+iter 2700: loss 3.3543 | lr 1.00e-04 | time 35.76ms | mfu 5.49%
+step 2750: train loss 3.1872, val loss 3.8738, val ppl 48.13, elapsed 131.9s
+saving checkpoint to out-6m-base-s1337
+iter 2800: loss 3.3979 | lr 8.90e-05 | time 34.39ms | mfu 5.62%
+iter 2900: loss 3.3404 | lr 8.23e-05 | time 35.69ms | mfu 5.71%
+step 3000: train loss 3.1642, val loss 3.8671, val ppl 47.80, elapsed 141.4s
+saving checkpoint to out-6m-base-s1337
+iter 3000: loss 3.3977 | lr 8.00e-05 | time 674.19ms | mfu 5.18%
+--> Evaluating Pure Llama 2 (RoPE) (out-6m-base-s1337)...
+[DONE llama2_s1337] train=148.2s | BucketPPL [0:256]=49.45 [256:512]=46.81 [1024:2048]=147.31 | Needle@512=25.25% @1024=14.88% @1536=14.33% | AssocCF@512=17.5±5.3% (-2.38) | OOD_Pmax=38.02% AUROC=N/A
+
+====================================================================================
+[2/8] Training ALiBi (Press et al., 2022) -> out-6m-alibi-s1337
+====================================================================================
+
+=== Training ALIBI (seed=1337) | decayed params: 5,865,472 ===
+num decayed parameter tensors: 43, with 5,865,472 parameters
+num non-decayed parameter tensors: 13, with 3,328 parameters
+using fused AdamW: True
+W1127 13:53:18.644000 4556 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+[ALIBI] step    0: val loss 8.3583, val ppl 4265.52, elapsed 14.8s
+[ALIBI] step  250: val loss 5.0082, val ppl 149.64, elapsed 39.6s
+[ALIBI] step  500: val loss 4.4349, val ppl 84.35, elapsed 51.6s
+[ALIBI] step  750: val loss 4.2288, val ppl 68.63, elapsed 63.6s
+[ALIBI] step 1000: val loss 4.1236, val ppl 61.78, elapsed 75.5s
+[ALIBI] step 1250: val loss 4.0497, val ppl 57.38, elapsed 87.3s
+[ALIBI] step 1500: val loss 3.9921, val ppl 54.17, elapsed 99.1s
+[ALIBI] step 1750: val loss 3.9310, val ppl 50.96, elapsed 110.8s
+[ALIBI] step 2000: val loss 3.8988, val ppl 49.34, elapsed 122.6s
+[ALIBI] step 2250: val loss 3.8710, val ppl 47.99, elapsed 134.4s
+[ALIBI] step 2500: val loss 3.8491, val ppl 46.95, elapsed 146.2s
+[ALIBI] step 2750: val loss 3.8348, val ppl 46.28, elapsed 158.1s
+[ALIBI] step 3000: val loss 3.8258, val ppl 45.87, elapsed 170.0s
+--> Evaluating ALiBi (Press et al., 2022) (out-6m-alibi-s1337)...
+[DONE alibi_s1337] train=176.7s | BucketPPL [0:256]=48.14 [256:512]=43.86 [1024:2048]=42.6 | Needle@512=26.25% @1024=24.67% @1536=23.13% | AssocCF@512=22.0±5.7% (-2.20) | OOD_Pmax=39.06% AUROC=N/A
+
+====================================================================================
+[3/8] Training FoX (Forgetting Transformer, ICLR 2025) -> out-6m-fox-s1337
+====================================================================================
+
+=== Training FOX (seed=1337) | decayed params: 5,871,616 ===
+num decayed parameter tensors: 49, with 5,871,616 parameters
+num non-decayed parameter tensors: 19, with 3,352 parameters
+using fused AdamW: True
+W1127 13:56:52.826000 5586 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+[FOX] step    0: val loss 8.3594, val ppl 4270.28, elapsed 21.9s
+[FOX] step  250: val loss 5.0280, val ppl 152.63, elapsed 57.3s
+[FOX] step  500: val loss 4.4033, val ppl 81.72, elapsed 71.5s
+[FOX] step  750: val loss 4.1880, val ppl 65.89, elapsed 85.7s
+[FOX] step 1000: val loss 4.0850, val ppl 59.44, elapsed 99.7s
+[FOX] step 1250: val loss 4.0053, val ppl 54.89, elapsed 113.7s
+[FOX] step 1500: val loss 3.9405, val ppl 51.45, elapsed 127.7s
+[FOX] step 1750: val loss 3.9094, val ppl 49.87, elapsed 141.7s
+[FOX] step 2000: val loss 3.8672, val ppl 47.81, elapsed 155.8s
+[FOX] step 2250: val loss 3.8415, val ppl 46.59, elapsed 169.8s
+[FOX] step 2500: val loss 3.8207, val ppl 45.64, elapsed 183.9s
+[FOX] step 2750: val loss 3.8055, val ppl 44.95, elapsed 198.0s
+[FOX] step 3000: val loss 3.7959, val ppl 44.52, elapsed 212.1s
+--> Evaluating FoX (Forgetting Transformer, ICLR 2025) (out-6m-fox-s1337)...
+[DONE fox_s1337] train=218.9s | BucketPPL [0:256]=46.36 [256:512]=43.55 [1024:2048]=42.25 | Needle@512=26.33% @1024=26.5% @1536=25.71% | AssocCF@512=19.0±5.4% (-2.43) | OOD_Pmax=37.82% AUROC=N/A
+
+====================================================================================
+[4/8] Training EPR v2.0 Distilled (Const RBF + 1 WH) -> out-6m-epr-v2-s1337
+====================================================================================
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-v2-s1337
+Overriding: use_epr = True
+Overriding: use_wormhole = True
+Overriding: use_elastic_rbf = False
+Overriding: use_resonant_tunneling = False
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 1337
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=1337
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=True[v0=2.5], rbf=True[elastic=False], dil=True, vac=True, tunnel=False, bilat=False, nest=False)
+number of parameters: 5.77M (5,769,026)
+num decayed parameter tensors: 37, with 5,765,632 parameters
+num non-decayed parameter tensors: 31, with 3,394 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+W1127 14:01:40.554000 6994 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+step 0: train loss 8.3687, val loss 8.3696, val ppl 4314.00, elapsed 19.6s
+iter 0: loss 8.3767 | lr 3.98e-06 | time 55049.38ms | mfu -100.00%
+iter 100: loss 6.2386 | lr 4.02e-04 | time 61.48ms | mfu 3.76%
+iter 200: loss 5.2082 | lr 8.00e-04 | time 61.37ms | mfu 3.76%
+step 250: train loss 4.8384, val loss 4.9217, val ppl 137.24, elapsed 71.1s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 300: loss 4.7162 | lr 7.98e-04 | time 62.30ms | mfu 3.76%
+iter 400: loss 4.4060 | lr 7.91e-04 | time 60.63ms | mfu 3.76%
+step 500: train loss 4.0840, val loss 4.3272, val ppl 75.73, elapsed 87.3s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 500: loss 4.1647 | lr 7.80e-04 | time 987.50ms | mfu 3.41%
+iter 600: loss 4.1291 | lr 7.64e-04 | time 60.73ms | mfu 3.45%
+iter 700: loss 3.8776 | lr 7.45e-04 | time 60.74ms | mfu 3.49%
+step 750: train loss 3.7429, val loss 4.0790, val ppl 59.09, elapsed 103.3s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 800: loss 3.8644 | lr 7.21e-04 | time 61.50ms | mfu 3.51%
+iter 900: loss 3.7947 | lr 6.95e-04 | time 59.84ms | mfu 3.55%
+step 1000: train loss 3.5317, val loss 3.9345, val ppl 51.14, elapsed 119.3s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 1000: loss 3.7064 | lr 6.64e-04 | time 975.36ms | mfu 3.22%
+iter 1100: loss 3.6777 | lr 6.32e-04 | time 60.86ms | mfu 3.28%
+iter 1200: loss 3.6708 | lr 5.96e-04 | time 59.98ms | mfu 3.33%
+step 1250: train loss 3.3984, val loss 3.8338, val ppl 46.24, elapsed 135.3s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 1300: loss 3.5142 | lr 5.59e-04 | time 60.50ms | mfu 3.38%
+iter 1400: loss 3.4537 | lr 5.20e-04 | time 60.56ms | mfu 3.43%
+step 1500: train loss 3.2838, val loss 3.7715, val ppl 43.45, elapsed 151.2s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 1500: loss 3.4568 | lr 4.80e-04 | time 974.53ms | mfu 3.11%
+iter 1600: loss 3.4970 | lr 4.40e-04 | time 61.89ms | mfu 3.17%
+iter 1700: loss 3.4839 | lr 4.00e-04 | time 61.20ms | mfu 3.23%
+step 1750: train loss 3.1910, val loss 3.7295, val ppl 41.66, elapsed 167.3s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 1800: loss 3.4091 | lr 3.60e-04 | time 60.88ms | mfu 3.29%
+iter 1900: loss 3.4039 | lr 3.21e-04 | time 61.78ms | mfu 3.33%
+step 2000: train loss 3.1196, val loss 3.6941, val ppl 40.21, elapsed 183.4s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 2000: loss 3.2552 | lr 2.84e-04 | time 997.30ms | mfu 3.02%
+iter 2100: loss 3.3878 | lr 2.48e-04 | time 60.09ms | mfu 3.11%
+iter 2200: loss 3.3240 | lr 2.16e-04 | time 60.35ms | mfu 3.18%
+step 2250: train loss 3.0676, val loss 3.6639, val ppl 39.01, elapsed 199.4s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 2300: loss 3.2766 | lr 1.85e-04 | time 60.95ms | mfu 3.24%
+iter 2400: loss 3.3205 | lr 1.59e-04 | time 61.33ms | mfu 3.29%
+step 2500: train loss 3.0210, val loss 3.6501, val ppl 38.48, elapsed 215.5s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 2500: loss 3.2612 | lr 1.35e-04 | time 988.73ms | mfu 2.99%
+iter 2600: loss 3.3051 | lr 1.16e-04 | time 60.98ms | mfu 3.07%
+iter 2700: loss 3.2113 | lr 1.00e-04 | time 60.09ms | mfu 3.15%
+step 2750: train loss 2.9972, val loss 3.6377, val ppl 38.00, elapsed 231.5s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 2800: loss 3.2865 | lr 8.90e-05 | time 61.77ms | mfu 3.21%
+iter 2900: loss 3.3656 | lr 8.23e-05 | time 60.62ms | mfu 3.27%
+step 3000: train loss 2.9769, val loss 3.6303, val ppl 37.72, elapsed 247.5s
+saving checkpoint to out-6m-epr-v2-s1337
+iter 3000: loss 3.1933 | lr 8.00e-05 | time 975.02ms | mfu 2.96%
+--> Evaluating EPR v2.0 Distilled (Const RBF + 1 WH) (out-6m-epr-v2-s1337)...
+[DONE epr_v2_s1337] train=254.8s | BucketPPL [0:256]=40.36 [256:512]=35.47 [1024:2048]=33.91 | Needle@512=34.0% @1024=32.67% @1536=31.75% | AssocCF@512=19.5±5.5% (-2.34) | OOD_Pmax=38.69% AUROC=0.5918
+
+====================================================================================
+[5/8] Training EPR v2.0 + Mass-Elastic RBF (Gem #1) -> out-6m-epr-elastic-s1337
+====================================================================================
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-elastic-s1337
+Overriding: use_epr = True
+Overriding: use_wormhole = True
+Overriding: use_elastic_rbf = True
+Overriding: use_resonant_tunneling = False
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 1337
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=1337
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=True[v0=2.5], rbf=True[elastic=True], dil=True, vac=True, tunnel=False, bilat=False, nest=False)
+number of parameters: 5.77M (5,769,050)
+num decayed parameter tensors: 37, with 5,765,632 parameters
+num non-decayed parameter tensors: 37, with 3,418 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+W1127 14:07:36.777000 8751 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+step 0: train loss 8.3688, val loss 8.3698, val ppl 4314.87, elapsed 18.4s
+iter 0: loss 8.3767 | lr 3.98e-06 | time 53330.98ms | mfu -100.00%
+iter 100: loss 6.2410 | lr 4.02e-04 | time 61.24ms | mfu 3.78%
+iter 200: loss 5.2108 | lr 8.00e-04 | time 62.46ms | mfu 3.77%
+step 250: train loss 4.8385, val loss 4.9220, val ppl 137.27, elapsed 69.4s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 300: loss 4.7151 | lr 7.98e-04 | time 63.71ms | mfu 3.76%
+iter 400: loss 4.4101 | lr 7.91e-04 | time 60.95ms | mfu 3.76%
+step 500: train loss 4.0847, val loss 4.3271, val ppl 75.72, elapsed 85.7s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 500: loss 4.1628 | lr 7.80e-04 | time 995.88ms | mfu 3.41%
+iter 600: loss 4.1354 | lr 7.64e-04 | time 60.67ms | mfu 3.45%
+iter 700: loss 3.8862 | lr 7.45e-04 | time 60.44ms | mfu 3.49%
+step 750: train loss 3.7475, val loss 4.0830, val ppl 59.32, elapsed 101.8s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 800: loss 3.8666 | lr 7.21e-04 | time 62.55ms | mfu 3.51%
+iter 900: loss 3.7930 | lr 6.95e-04 | time 61.55ms | mfu 3.53%
+step 1000: train loss 3.5323, val loss 3.9413, val ppl 51.48, elapsed 117.8s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 1000: loss 3.7040 | lr 6.64e-04 | time 968.21ms | mfu 3.20%
+iter 1100: loss 3.6904 | lr 6.32e-04 | time 60.27ms | mfu 3.27%
+iter 1200: loss 3.6643 | lr 5.96e-04 | time 60.62ms | mfu 3.32%
+step 1250: train loss 3.3988, val loss 3.8385, val ppl 46.46, elapsed 133.8s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 1300: loss 3.5215 | lr 5.59e-04 | time 61.27ms | mfu 3.37%
+iter 1400: loss 3.4658 | lr 5.20e-04 | time 62.08ms | mfu 3.40%
+step 1500: train loss 3.2839, val loss 3.7777, val ppl 43.71, elapsed 149.8s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 1500: loss 3.4547 | lr 4.80e-04 | time 994.30ms | mfu 3.09%
+iter 1600: loss 3.4957 | lr 4.40e-04 | time 61.35ms | mfu 3.15%
+iter 1700: loss 3.4855 | lr 4.00e-04 | time 62.03ms | mfu 3.21%
+step 1750: train loss 3.1882, val loss 3.7313, val ppl 41.73, elapsed 166.0s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 1800: loss 3.4093 | lr 3.60e-04 | time 62.11ms | mfu 3.26%
+iter 1900: loss 3.4044 | lr 3.21e-04 | time 60.08ms | mfu 3.32%
+step 2000: train loss 3.1184, val loss 3.6958, val ppl 40.28, elapsed 182.1s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 2000: loss 3.2550 | lr 2.84e-04 | time 1001.45ms | mfu 3.01%
+iter 2100: loss 3.3943 | lr 2.48e-04 | time 61.43ms | mfu 3.09%
+iter 2200: loss 3.3241 | lr 2.16e-04 | time 61.42ms | mfu 3.16%
+step 2250: train loss 3.0667, val loss 3.6664, val ppl 39.11, elapsed 198.2s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 2300: loss 3.2761 | lr 1.85e-04 | time 61.34ms | mfu 3.22%
+iter 2400: loss 3.3085 | lr 1.59e-04 | time 61.39ms | mfu 3.27%
+step 2500: train loss 3.0202, val loss 3.6519, val ppl 38.55, elapsed 214.3s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 2500: loss 3.2511 | lr 1.35e-04 | time 978.28ms | mfu 2.97%
+iter 2600: loss 3.3182 | lr 1.16e-04 | time 61.62ms | mfu 3.05%
+iter 2700: loss 3.2084 | lr 1.00e-04 | time 61.91ms | mfu 3.12%
+step 2750: train loss 2.9954, val loss 3.6372, val ppl 37.99, elapsed 230.4s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 2800: loss 3.2762 | lr 8.90e-05 | time 61.68ms | mfu 3.18%
+iter 2900: loss 3.3598 | lr 8.23e-05 | time 60.71ms | mfu 3.24%
+step 3000: train loss 2.9766, val loss 3.6305, val ppl 37.73, elapsed 246.5s
+saving checkpoint to out-6m-epr-elastic-s1337
+iter 3000: loss 3.1914 | lr 8.00e-05 | time 986.02ms | mfu 2.94%
+--> Evaluating EPR v2.0 + Mass-Elastic RBF (Gem #1) (out-6m-epr-elastic-s1337)...
+[DONE epr_elastic_s1337] train=253.9s | BucketPPL [0:256]=40.55 [256:512]=35.46 [1024:2048]=34.02 | Needle@512=34.42% @1024=32.96% @1536=32.13% | AssocCF@512=21.5±5.7% (-2.29) | OOD_Pmax=39.21% AUROC=0.5911
+
+====================================================================================
+[6/8] Training EPR v2.0 + Resonant Tunneling (1 WH, Gem #2) -> out-6m-epr-tunnel-wh-s1337
+====================================================================================
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-tunnel-wh-s1337
+Overriding: use_epr = True
+Overriding: use_wormhole = True
+Overriding: use_elastic_rbf = False
+Overriding: use_resonant_tunneling = True
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 1337
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=1337
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=True[v0=2.5], rbf=True[elastic=False], dil=True, vac=True, tunnel=True, bilat=False, nest=False)
+number of parameters: 5.77M (5,769,074)
+num decayed parameter tensors: 37, with 5,765,632 parameters
+num non-decayed parameter tensors: 43, with 3,442 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+W1127 14:13:34.636000 10425 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+step 0: train loss 8.3687, val loss 8.3696, val ppl 4313.91, elapsed 21.4s
+iter 0: loss 8.3748 | lr 3.98e-06 | time 63477.33ms | mfu -100.00%
+iter 100: loss 6.2393 | lr 4.02e-04 | time 98.48ms | mfu 2.35%
+iter 200: loss 5.2129 | lr 8.00e-04 | time 99.16ms | mfu 2.35%
+step 250: train loss 4.8393, val loss 4.9220, val ppl 137.28, elapsed 88.9s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 300: loss 4.7192 | lr 7.98e-04 | time 98.94ms | mfu 2.35%
+iter 400: loss 4.4066 | lr 7.91e-04 | time 97.39ms | mfu 2.35%
+step 500: train loss 4.0927, val loss 4.3306, val ppl 75.99, elapsed 114.4s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 500: loss 4.1701 | lr 7.80e-04 | time 1238.07ms | mfu 2.13%
+iter 600: loss 4.1464 | lr 7.64e-04 | time 97.06ms | mfu 2.16%
+iter 700: loss 3.8841 | lr 7.45e-04 | time 98.12ms | mfu 2.18%
+step 750: train loss 3.7484, val loss 4.0886, val ppl 59.66, elapsed 139.8s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 800: loss 3.8748 | lr 7.21e-04 | time 97.35ms | mfu 2.20%
+iter 900: loss 3.8038 | lr 6.95e-04 | time 97.59ms | mfu 2.22%
+step 1000: train loss 3.5335, val loss 3.9370, val ppl 51.27, elapsed 165.2s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 1000: loss 3.7089 | lr 6.64e-04 | time 1260.80ms | mfu 2.01%
+iter 1100: loss 3.6887 | lr 6.32e-04 | time 97.87ms | mfu 2.05%
+iter 1200: loss 3.6631 | lr 5.96e-04 | time 97.70ms | mfu 2.08%
+step 1250: train loss 3.4047, val loss 3.8396, val ppl 46.51, elapsed 190.7s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 1300: loss 3.5158 | lr 5.59e-04 | time 97.23ms | mfu 2.11%
+iter 1400: loss 3.4490 | lr 5.20e-04 | time 97.69ms | mfu 2.14%
+step 1500: train loss 3.2851, val loss 3.7735, val ppl 43.53, elapsed 216.2s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 1500: loss 3.4634 | lr 4.80e-04 | time 1260.83ms | mfu 1.94%
+iter 1600: loss 3.4872 | lr 4.40e-04 | time 97.29ms | mfu 1.98%
+iter 1700: loss 3.4975 | lr 4.00e-04 | time 98.04ms | mfu 2.02%
+step 1750: train loss 3.1934, val loss 3.7330, val ppl 41.80, elapsed 241.7s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 1800: loss 3.4250 | lr 3.60e-04 | time 97.20ms | mfu 2.06%
+iter 1900: loss 3.3935 | lr 3.21e-04 | time 97.71ms | mfu 2.09%
+step 2000: train loss 3.1194, val loss 3.6948, val ppl 40.24, elapsed 267.2s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 2000: loss 3.2694 | lr 2.84e-04 | time 1244.48ms | mfu 1.90%
+iter 2100: loss 3.3864 | lr 2.48e-04 | time 97.53ms | mfu 1.95%
+iter 2200: loss 3.3236 | lr 2.16e-04 | time 97.62ms | mfu 1.99%
+step 2250: train loss 3.0669, val loss 3.6670, val ppl 39.13, elapsed 292.6s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 2300: loss 3.2841 | lr 1.85e-04 | time 97.15ms | mfu 2.03%
+iter 2400: loss 3.3342 | lr 1.59e-04 | time 97.96ms | mfu 2.06%
+step 2500: train loss 3.0215, val loss 3.6510, val ppl 38.51, elapsed 318.1s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 2500: loss 3.2497 | lr 1.35e-04 | time 1255.17ms | mfu 1.87%
+iter 2600: loss 3.3124 | lr 1.16e-04 | time 97.65ms | mfu 1.92%
+iter 2700: loss 3.2004 | lr 1.00e-04 | time 97.45ms | mfu 1.97%
+step 2750: train loss 2.9966, val loss 3.6380, val ppl 38.02, elapsed 343.5s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 2800: loss 3.2870 | lr 8.90e-05 | time 97.47ms | mfu 2.01%
+iter 2900: loss 3.3532 | lr 8.23e-05 | time 97.47ms | mfu 2.04%
+step 3000: train loss 2.9771, val loss 3.6303, val ppl 37.72, elapsed 369.0s
+saving checkpoint to out-6m-epr-tunnel-wh-s1337
+iter 3000: loss 3.1949 | lr 8.00e-05 | time 1241.92ms | mfu 1.86%
+--> Evaluating EPR v2.0 + Resonant Tunneling (1 WH, Gem #2) (out-6m-epr-tunnel-wh-s1337)...
+[DONE epr_tunnel_wh_s1337] train=376.2s | BucketPPL [0:256]=40.46 [256:512]=35.37 [1024:2048]=34.03 | Needle@512=35.79% @1024=34.08% @1536=31.96% | AssocCF@512=21.0±5.6% (-2.22) | OOD_Pmax=38.71% AUROC=0.5896
+
+====================================================================================
+[7/8] Training EPR v2.0 + Pure Resonant Tunneling (0 WH, Gem #2) -> out-6m-epr-tunnel-nowh-s1337
+====================================================================================
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-tunnel-nowh-s1337
+Overriding: use_epr = True
+Overriding: use_wormhole = False
+Overriding: use_elastic_rbf = False
+Overriding: use_resonant_tunneling = True
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 1337
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=1337
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=False[v0=2.5], rbf=True[elastic=False], dil=True, vac=True, tunnel=True, bilat=False, nest=False)
+number of parameters: 5.77M (5,770,616)
+num decayed parameter tensors: 37, with 5,767,168 parameters
+num non-decayed parameter tensors: 43, with 3,448 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+W1127 14:22:15.317000 12895 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+step 0: train loss 8.3641, val loss 8.3660, val ppl 4298.50, elapsed 18.4s
+iter 0: loss 8.3639 | lr 3.98e-06 | time 54709.83ms | mfu -100.00%
+iter 100: loss 6.2206 | lr 4.02e-04 | time 99.05ms | mfu 2.34%
+iter 200: loss 5.2075 | lr 8.00e-04 | time 98.58ms | mfu 2.34%
+step 250: train loss 4.8363, val loss 4.9154, val ppl 136.37, elapsed 80.2s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 300: loss 4.7687 | lr 7.98e-04 | time 99.13ms | mfu 2.34%
+iter 400: loss 4.4303 | lr 7.91e-04 | time 97.79ms | mfu 2.34%
+step 500: train loss 4.0821, val loss 4.3159, val ppl 74.88, elapsed 105.6s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 500: loss 4.1675 | lr 7.80e-04 | time 1221.10ms | mfu 2.12%
+iter 600: loss 4.0761 | lr 7.64e-04 | time 97.65ms | mfu 2.15%
+iter 700: loss 3.9933 | lr 7.45e-04 | time 97.42ms | mfu 2.17%
+step 750: train loss 3.7699, val loss 4.1088, val ppl 60.87, elapsed 131.0s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 800: loss 3.8749 | lr 7.21e-04 | time 97.09ms | mfu 2.19%
+iter 900: loss 3.8482 | lr 6.95e-04 | time 97.49ms | mfu 2.21%
+step 1000: train loss 3.5476, val loss 3.9520, val ppl 52.04, elapsed 156.4s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 1000: loss 3.7893 | lr 6.64e-04 | time 1256.30ms | mfu 2.01%
+iter 1100: loss 3.6285 | lr 6.32e-04 | time 97.65ms | mfu 2.04%
+iter 1200: loss 3.6662 | lr 5.96e-04 | time 97.97ms | mfu 2.08%
+step 1250: train loss 3.3974, val loss 3.8524, val ppl 47.11, elapsed 181.9s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 1300: loss 3.5397 | lr 5.59e-04 | time 97.71ms | mfu 2.11%
+iter 1400: loss 3.4914 | lr 5.20e-04 | time 97.30ms | mfu 2.13%
+step 1500: train loss 3.2797, val loss 3.7924, val ppl 44.36, elapsed 207.4s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 1500: loss 3.5682 | lr 4.80e-04 | time 1246.17ms | mfu 1.94%
+iter 1600: loss 3.5361 | lr 4.40e-04 | time 96.54ms | mfu 1.98%
+iter 1700: loss 3.3782 | lr 4.00e-04 | time 97.02ms | mfu 2.02%
+step 1750: train loss 3.1936, val loss 3.7506, val ppl 42.55, elapsed 232.8s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 1800: loss 3.4174 | lr 3.60e-04 | time 97.96ms | mfu 2.06%
+iter 1900: loss 3.3888 | lr 3.21e-04 | time 97.74ms | mfu 2.09%
+step 2000: train loss 3.1215, val loss 3.7056, val ppl 40.67, elapsed 258.3s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 2000: loss 3.4187 | lr 2.84e-04 | time 1240.74ms | mfu 1.90%
+iter 2100: loss 3.4220 | lr 2.48e-04 | time 97.25ms | mfu 1.95%
+iter 2200: loss 3.2555 | lr 2.16e-04 | time 97.62ms | mfu 1.99%
+step 2250: train loss 3.0652, val loss 3.6897, val ppl 40.03, elapsed 283.7s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 2300: loss 3.2593 | lr 1.85e-04 | time 97.37ms | mfu 2.03%
+iter 2400: loss 3.2464 | lr 1.59e-04 | time 98.62ms | mfu 2.06%
+step 2500: train loss 3.0223, val loss 3.6670, val ppl 39.13, elapsed 309.2s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 2500: loss 3.2155 | lr 1.35e-04 | time 1246.97ms | mfu 1.87%
+iter 2600: loss 3.2896 | lr 1.16e-04 | time 97.53ms | mfu 1.92%
+iter 2700: loss 3.1788 | lr 1.00e-04 | time 97.81ms | mfu 1.97%
+step 2750: train loss 2.9966, val loss 3.6554, val ppl 38.68, elapsed 334.6s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 2800: loss 3.3251 | lr 8.90e-05 | time 97.29ms | mfu 2.01%
+iter 2900: loss 3.2559 | lr 8.23e-05 | time 96.78ms | mfu 2.05%
+step 3000: train loss 2.9776, val loss 3.6480, val ppl 38.40, elapsed 360.1s
+saving checkpoint to out-6m-epr-tunnel-nowh-s1337
+iter 3000: loss 3.1565 | lr 8.00e-05 | time 1243.34ms | mfu 1.86%
+--> Evaluating EPR v2.0 + Pure Resonant Tunneling (0 WH, Gem #2) (out-6m-epr-tunnel-nowh-s1337)...
+[DONE epr_tunnel_nowh_s1337] train=367.3s | BucketPPL [0:256]=40.97 [256:512]=36.22 [1024:2048]=34.77 | Needle@512=27.21% @1024=24.92% @1536=25.29% | AssocCF@512=17.5±5.3% (-2.42) | OOD_Pmax=36.33% AUROC=0.501
+
+====================================================================================
+[8/8] Training EPR v2.0 Full (Elastic RBF + Tunneling + 1 WH) -> out-6m-epr-full-s1337
+====================================================================================
+Overriding config with config/train_wikitext2_colab_scale.py:
+# Google Colab CUDA (L4 / A100 / G4) — Scaled-up 6.0M Llama 2 (head_dim=64, max_seq_len=512)
+# Exact 64-dim hardware packing: d_r=48 resonance fiber + d_g=14 base spacetime + 2 = 64!
+
+dataset = "wikitext2"
+batch_size = 32
+max_seq_len = 512
+gradient_accumulation_steps = 1
+
+dim = 256
+n_layers = 6
+n_heads = 4        # head_dim = 64 -> 4 Solar-System scales (Moon/Sat/Earth/Sun) with rich 48-dim fiber + 14-dim base!
+n_kv_heads = 4
+multiple_of = 32
+dropout = 0.15
+
+learning_rate = 8e-4
+min_lr = 8e-5
+warmup_iters = 200
+max_iters = 3000
+lr_decay_iters = 3000
+weight_decay = 1e-1
+beta1 = 0.9
+beta2 = 0.95
+grad_clip = 1.0
+
+eval_interval = 250
+eval_iters = 20
+log_interval = 100
+always_save_checkpoint = False
+export_bin = False
+
+device = "cuda"
+dtype = "bfloat16"
+compile = True
+
+Overriding: out_dir = out-6m-epr-full-s1337
+Overriding: use_epr = True
+Overriding: use_wormhole = True
+Overriding: use_elastic_rbf = True
+Overriding: use_resonant_tunneling = True
+Overriding: use_bilateral_mass = False
+Overriding: use_nested_time = False
+Overriding: seed = 1337
+Hardware: NVIDIA L4 (22.0 GB VRAM) | dtype=bfloat16 | compile=True | seed=1337
+tokens per iteration: 16,384 (accum=1 * B=32 * T=512)
+found vocab_size = 4096 (inside data/wikitext2/meta.pkl)
+Initializing from scratch: Llama 2 + EPRAttention(wormhole=True[v0=2.5], rbf=True[elastic=True], dil=True, vac=True, tunnel=True, bilat=False, nest=False)
+number of parameters: 5.77M (5,769,098)
+num decayed parameter tensors: 37, with 5,765,632 parameters
+num non-decayed parameter tensors: 49, with 3,466 parameters
+using fused AdamW: True
+compiling the model with torch.compile... (takes ~20-50s on step 0)
+W1127 14:30:46.252000 15243 torch/_inductor/utils.py:1806] [0/0] Not enough SMs to use max_autotune_gemm mode
+step 0: train loss 8.3688, val loss 8.3698, val ppl 4314.76, elapsed 20.6s
+iter 0: loss 8.3750 | lr 3.98e-06 | time 62808.67ms | mfu -100.00%
+iter 100: loss 6.2415 | lr 4.02e-04 | time 98.95ms | mfu 2.34%
+iter 200: loss 5.2156 | lr 8.00e-04 | time 98.66ms | mfu 2.34%
+step 250: train loss 4.8419, val loss 4.9242, val ppl 137.58, elapsed 88.3s
+saving checkpoint to out-6m-epr-full-s1337
+iter 300: loss 4.7209 | lr 7.98e-04 | time 98.37ms | mfu 2.34%
+iter 400: loss 4.4091 | lr 7.91e-04 | time 97.42ms | mfu 2.34%
+step 500: train loss 4.0933, val loss 4.3301, val ppl 75.95, elapsed 113.8s
+saving checkpoint to out-6m-epr-full-s1337
+iter 500: loss 4.1724 | lr 7.80e-04 | time 1234.91ms | mfu 2.13%
+iter 600: loss 4.1427 | lr 7.64e-04 | time 97.70ms | mfu 2.15%
+iter 700: loss 3.8873 | lr 7.45e-04 | time 97.32ms | mfu 2.17%
+step 750: train loss 3.7552, val loss 4.0974, val ppl 60.19, elapsed 139.2s
+saving checkpoint to out-6m-epr-full-s1337
+iter 800: loss 3.8795 | lr 7.21e-04 | time 97.82ms | mfu 2.19%
+iter 900: loss 3.8098 | lr 6.95e-04 | time 97.47ms | mfu 2.21%
+step 1000: train loss 3.5370, val loss 3.9491, val ppl 51.89, elapsed 164.6s
+saving checkpoint to out-6m-epr-full-s1337
+iter 1000: loss 3.7158 | lr 6.64e-04 | time 1246.33ms | mfu 2.01%
+iter 1100: loss 3.6873 | lr 6.32e-04 | time 97.98ms | mfu 2.04%
+iter 1200: loss 3.6588 | lr 5.96e-04 | time 98.35ms | mfu 2.07%
+step 1250: train loss 3.4051, val loss 3.8512, val ppl 47.05, elapsed 190.2s
+saving checkpoint to out-6m-epr-full-s1337
+iter 1300: loss 3.5246 | lr 5.59e-04 | time 97.37ms | mfu 2.10%
+iter 1400: loss 3.4649 | lr 5.20e-04 | time 97.90ms | mfu 2.13%
+step 1500: train loss 3.2867, val loss 3.7815, val ppl 43.88, elapsed 215.7s
+saving checkpoint to out-6m-epr-full-s1337
+iter 1500: loss 3.4636 | lr 4.80e-04 | time 1241.78ms | mfu 1.94%
+iter 1600: loss 3.4935 | lr 4.40e-04 | time 97.38ms | mfu 1.98%
+iter 1700: loss 3.5013 | lr 4.00e-04 | time 97.61ms | mfu 2.02%
+step 1750: train loss 3.1927, val loss 3.7356, val ppl 41.91, elapsed 241.2s
+saving checkpoint to out-6m-epr-full-s1337
+iter 1800: loss 3.4238 | lr 3.60e-04 | time 97.45ms | mfu 2.05%
+iter 1900: loss 3.3990 | lr 3.21e-04 | time 97.36ms | mfu 2.09%
+step 2000: train loss 3.1207, val loss 3.7008, val ppl 40.48, elapsed 266.7s
+saving checkpoint to out-6m-epr-full-s1337
+iter 2000: loss 3.2737 | lr 2.84e-04 | time 1240.80ms | mfu 1.90%
+iter 2100: loss 3.3930 | lr 2.48e-04 | time 97.84ms | mfu 1.94%
+iter 2200: loss 3.3265 | lr 2.16e-04 | time 97.87ms | mfu 1.99%
+step 2250: train loss 3.0672, val loss 3.6710, val ppl 39.29, elapsed 292.2s
+saving checkpoint to out-6m-epr-full-s1337
+iter 2300: loss 3.2712 | lr 1.85e-04 | time 97.90ms | mfu 2.02%
+iter 2400: loss 3.3291 | lr 1.59e-04 | time 97.84ms | mfu 2.06%
+step 2500: train loss 3.0211, val loss 3.6538, val ppl 38.62, elapsed 317.7s
+saving checkpoint to out-6m-epr-full-s1337
+iter 2500: loss 3.2521 | lr 1.35e-04 | time 1222.75ms | mfu 1.87%
+iter 2600: loss 3.3253 | lr 1.16e-04 | time 98.09ms | mfu 1.92%
+iter 2700: loss 3.2055 | lr 1.00e-04 | time 97.63ms | mfu 1.96%
+step 2750: train loss 2.9976, val loss 3.6407, val ppl 38.12, elapsed 343.2s
+saving checkpoint to out-6m-epr-full-s1337
+iter 2800: loss 3.2934 | lr 8.90e-05 | time 97.09ms | mfu 2.01%
+iter 2900: loss 3.3495 | lr 8.23e-05 | time 97.43ms | mfu 2.04%
+step 3000: train loss 2.9775, val loss 3.6333, val ppl 37.84, elapsed 368.6s
+saving checkpoint to out-6m-epr-full-s1337
+iter 3000: loss 3.2047 | lr 8.00e-05 | time 1241.45ms | mfu 1.86%
+--> Evaluating EPR v2.0 Full (Elastic RBF + Tunneling + 1 WH) (out-6m-epr-full-s1337)...
+[DONE epr_full_s1337] train=376.0s | BucketPPL [0:256]=40.48 [256:512]=35.47 [1024:2048]=34.29 | Needle@512=34.79% @1024=34.0% @1536=32.17% | AssocCF@512=18.0±5.3% (-2.25) | OOD_Pmax=38.16% AUROC=0.5868
+
+=== ALL PHASE 1 MODELS COMPLETED ===
